@@ -1,0 +1,25 @@
+{
+  "name": "the-expertise-wins-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tests/freetips.test.js && node tests/tipsbet.test.js && node tests/vitibet.test.js && node tests/tips.contract.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/john-walter-munene/The-Expertise-Wins-API.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/john-walter-munene/The-Expertise-Wins-API/issues"
+  },
+  "homepage": "https://github.com/john-walter-munene/The-Expertise-Wins-API#readme",
+  "dependencies": {
+    "axios": "^1.19.0",
+    "cheerio": "^1.2.0",
+    "puppeteer": "^25.6.0"
+  }
+}
