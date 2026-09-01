@@ -23,6 +23,7 @@ class FreeTipsNormalizer {
                 detailsUrl: tip.detailsUrl || null,
                 status: tip.result === "?" || !tip.result ? "pending" : "settled",
                 result: tip.result || null,
+                extraTips: tip.extraTips || [],
             })
         );
     }

@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node tests/freetips.test.js && node tests/tipsbet.test.js && node tests/vitibet.test.js && node tests/tips.contract.test.js"
+    "test": "node tests/freetips.test.js && node tests/tipsbet.test.js && node tests/vitibet.test.js && node tests/tips.contract.test.js",
+    "test:premium-source": "node tests/premium.service.test.js"
   },
   "repository": {
     "type": "git",

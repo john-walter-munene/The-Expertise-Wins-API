@@ -11,6 +11,7 @@ const DISPLAY_FIELDS = [
     "market",
     "selection",
     "odds",
+    "extraTips",
     "detailsUrl",
     "status",
 ];
@@ -38,6 +39,7 @@ function printNormalizedTips(source, tips) {
 
         for (const field of DISPLAY_FIELDS.slice(1)) {
             let value = tip[field] ?? null;
+            if (field === "extraTips") value = Array.isArray(value) ? value.length : 0;
             if (field === "detailsUrl" && typeof value === "string" && value.length > 90) {
                 value = `${value.slice(0, 87)}...`;
             }

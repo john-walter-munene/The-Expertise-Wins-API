@@ -25,6 +25,7 @@ const TIP_CONTRACT_FIELDS = [
     "detailsUrl",
     "status",
     "result",
+    "extraTips",
     "scrapedAt",
 ];
 
@@ -40,7 +41,7 @@ function buildTip(overrides = {}) {
     const tip = {};
 
     for (const field of TIP_CONTRACT_FIELDS) {
-        tip[field] = overrides[field] ?? null;
+        tip[field] = field === "extraTips" ? (overrides[field] ?? []) : (overrides[field] ?? null);
     }
 
     tip.scrapedAt = overrides.scrapedAt || new Date();
