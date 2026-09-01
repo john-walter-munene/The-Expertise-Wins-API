@@ -1,11 +1,15 @@
-const { adminTips } = require("../services/index");
 const { TIP_CONTRACT_FIELDS } = require("../normalizers/contract");
+const { loadTestResults } = require("./test-results");
 
 (async () => {
     console.log(" TIPS CONTRACT TEST ");
 
-    const freeTips = await adminTips.getFreeTips();
-    const premiumTips = await adminTips.getPremiumTips();
+    // The individual provider tests have already fetched and saved these
+    // normalized results. Loading them here avoids running any scraper twice.
+    const tipsBetTips = loadTestResults("tipsbet");
+    const vitiBetTips = loadTestResults("vitibet");
+    const premiumTips = loadTestResults("freetips");
+    const freeTips = [...tipsBetTips, ...vitiBetTips];
 
     const allTips = [...freeTips, ...premiumTips];
 
@@ -17,8 +21,28 @@ const { TIP_CONTRACT_FIELDS } = require("../normalizers/contract");
     if (!Array.isArray(premiumTips)) throw new Error("Premium service must return an array");
     if (allTips.length === 0) throw new Error("No tips returned from services");
 
-    console.log("\nSample:");
-    console.table(allTips.slice(0, 5));
+    const tipsBySource = allTips.reduce((groups, tip) => {
+        const source = tip.source || "unknown";
+        (groups[source] ||= []).push(tip);
+        return groups;
+    }, {});
+
+    console.log("\nFirst three tips from each scraper:");
+    for (const [source, tips] of Object.entries(tipsBySource)) {
+        console.log(`\n${source} (${tips.length} total):`);
+        console.table(tips.slice(0, 3).map((tip) => ({
+            source: tip.source,
+            sport: tip.sport,
+            competition: tip.competition,
+            homeTeam: tip.homeTeam,
+            awayTeam: tip.awayTeam,
+            kickoff: tip.kickoff,
+            market: tip.market,
+            selection: tip.selection,
+            odds: tip.odds,
+            extraTips: tip.extraTips?.length || 0,
+        })));
+    }
     console.log("\nChecking contract...\n");
 
     let invalidCount = 0;

@@ -24,18 +24,25 @@ class FreeTipsMaxBetScraper {
 
         // Always refresh the local HTML file from the site before scraping.
         this.useLocalHtml = true;
+        // FreeTips is protected by Cloudflare, so Chrome/Edge must remain
+        // enabled for service and contract runs as well as production. Unit
+        // tests that need deterministic fixtures disable it explicitly.
+        this.useBrowserFetch = process.env.FREETIPS_DISABLE_BROWSER !== "true";
 
         // Candidate locations for the local HTML file.
         // If a path is provided, it overrides these candidates.
         this.localHtmlCandidates = [
+            path.resolve(__dirname, "..", "tests", "freetips", "freetips.html"),
             path.resolve(process.cwd(), "freetips.html"),
             path.resolve(__dirname, "..", "tests", "freetips.html"),
             path.resolve(__dirname, "freetips.html"),
         ];
 
-        // All fetched tip pages should be stored under tests/ so the scraper can
-        // inspect the saved HTML before parsing it again.
-        this.localSnapshotDir = path.resolve(__dirname, "..", "tests", "freetips-pages");
+        // All fetched tip pages should be stored in a dedicated provider folder so
+        // only the latest fresh run remains and older cached pages are pruned.
+        // The old shared /tests/freetips-pages folder is intentionally not used.
+        this.localSnapshotDir = path.resolve(__dirname, "..", "tests", "freetips");
+        this.legacySnapshotDirs = [];
 
         // Allows tests / callers to override the exact local file path.
         this.localHtmlPath = null;
@@ -68,14 +75,41 @@ class FreeTipsMaxBetScraper {
     }
 
     resolveLocalFilePath() {
-        if (this.localHtmlPath) return this.localHtmlPath;
+        if (this.localHtmlPath && fs.existsSync(this.localHtmlPath)) return this.localHtmlPath;
 
         const existing = this.localHtmlCandidates.find((candidate) => fs.existsSync(candidate));
         return existing || this.localHtmlCandidates[0];
     }
 
+    async resolveChromeExecutableAsync() {
+        if (!this.useBrowserFetch) return null;
+
+        const candidates = [...this.chromeExecutableCandidates];
+
+        try {
+            const puppeteer = require("puppeteer");
+            const bundledPath = await puppeteer.executablePath();
+            if (bundledPath) candidates.push(bundledPath);
+        } catch {
+            // Puppeteer may not be installed or the browser may not be available.
+        }
+
+        return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
+    }
+
     resolveChromeExecutable() {
-        return this.chromeExecutableCandidates.find((candidate) => fs.existsSync(candidate)) || null;
+        if (!this.useBrowserFetch) return null;
+
+        const candidates = [...this.chromeExecutableCandidates];
+
+        try {
+            const bundledPath = require("puppeteer").executablePath();
+            if (bundledPath) candidates.push(bundledPath);
+        } catch {
+            // fall through to configured candidates only
+        }
+
+        return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
     }
 
     buildLocalSnapshotPath(url) {
@@ -89,6 +123,34 @@ class FreeTipsMaxBetScraper {
             return path.join(this.localSnapshotDir, `${slug}.html`);
         } catch {
             return path.join(this.localSnapshotDir, `${String(url).replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "page"}.html`);
+        }
+    }
+
+    getSnapshotDirectories() {
+        return Array.from(new Set([this.localSnapshotDir, ...this.legacySnapshotDirs].filter(Boolean)));
+    }
+
+    cleanSnapshotDirectories() {
+        const staleLegacyDir = path.resolve(__dirname, "..", "tests", "freetips-pages");
+
+        for (const dir of [...this.getSnapshotDirectories(), staleLegacyDir]) {
+            try {
+                if (!fs.existsSync(dir)) continue;
+
+                if (path.basename(dir).toLowerCase() === "freetips-pages" && path.resolve(dir) === staleLegacyDir) {
+                    fs.rmSync(dir, { recursive: true, force: true });
+                    continue;
+                }
+
+                for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                    const entryPath = path.join(dir, entry.name);
+                    if (entry.isDirectory()) fs.rmSync(entryPath, { recursive: true, force: true });
+                    else if (/\.(html?|htm)$/i.test(entry.name)) fs.rmSync(entryPath, { force: true });
+                    
+                }
+            } catch {
+                // Ignore cleanup errors; the next fetch should still proceed.
+            }
         }
     }
 
@@ -115,9 +177,13 @@ class FreeTipsMaxBetScraper {
      *   3. existing local freetips.html (last resort)
      */
     async refreshLocalHtml(localFile) {
-        if (this.localHtmlPath) {
+        if (this.localHtmlPath && fs.existsSync(this.localHtmlPath)) {
             console.log(`Using explicit local freetips fixture at ${localFile}.`);
             return fs.readFileSync(localFile, "utf8");
+        }
+
+        if (this.localHtmlPath && !fs.existsSync(this.localHtmlPath)) {
+            console.log(`Explicit local freetips fixture missing at ${this.localHtmlPath}; falling back to live refresh.`);
         }
 
         console.log(`Refreshing local freetips.html from ${this.url} ...`);
@@ -125,7 +191,7 @@ class FreeTipsMaxBetScraper {
         let html = null;
         let lastError = null;
 
-        const chromePath = this.resolveChromeExecutable();
+        const chromePath = this.useBrowserFetch ? await this.resolveChromeExecutableAsync() : null;
         if (chromePath) {
             try {
                 html = await this.fetchWithBrowser(chromePath);
@@ -134,8 +200,8 @@ class FreeTipsMaxBetScraper {
                 lastError = browserError;
                 console.log("Puppeteer fetch failed:", browserError.message);
             }
-        } else {
-            console.log("No system Chrome/Edge found; falling back to axios.");
+        } else if (this.useBrowserFetch) {
+            console.log("No browser executable found; falling back to axios.");
         }
 
         if (!html) {
@@ -149,6 +215,10 @@ class FreeTipsMaxBetScraper {
         }
 
         if (html) {
+            const targetDir = path.dirname(localFile);
+            if (targetDir && targetDir !== ".") {
+                fs.mkdirSync(targetDir, { recursive: true });
+            }
             fs.writeFileSync(localFile, html, "utf8");
             this.writePageSnapshot(this.url, html);
             console.log("Local freetips.html overwritten with latest data.");
@@ -170,6 +240,10 @@ class FreeTipsMaxBetScraper {
      * Uses Puppeteer to drive the system Chrome/Edge browser, waits for
      * Cloudflare's JS challenge to clear, and returns the final page HTML.
      */
+    isCloudflareChallengePage(html) {
+        return typeof html === "string" && (html.includes("Just a moment...") || html.includes("cf-mitigated"));
+    }
+
     async fetchWithBrowser(chromePath, targetUrl = this.url) {
         const puppeteer = require("puppeteer");
 
@@ -199,7 +273,7 @@ class FreeTipsMaxBetScraper {
             while (Date.now() - start < maxWaitMs) {
                 const html = await page.content();
 
-                const hasChallenge = html.includes("Just a moment...") || html.includes("challenge-platform") || html.includes("cf-mitigated");
+                const hasChallenge = this.isCloudflareChallengePage(html);
                 const hasContent = await page.$(contentSelector).then((el) => Boolean(el)).catch(() => false);
 
                 if (!hasChallenge && hasContent) return html;
@@ -210,7 +284,7 @@ class FreeTipsMaxBetScraper {
             // Timeout reached: return the page content if it's not still the
             // challenge page; otherwise throw.
             const finalHtml = await page.content();
-            if (!finalHtml.includes("Just a moment...")) return finalHtml;
+            if (!this.isCloudflareChallengePage(finalHtml)) return finalHtml;
 
             throw new Error("Cloudflare challenge did not clear within timeout.");
         } finally {
@@ -239,7 +313,7 @@ class FreeTipsMaxBetScraper {
     }
 
     async fetchWithAxiosOrBrowser(targetUrl = this.url) {
-        const chromePath = this.resolveChromeExecutable();
+        const chromePath = this.useBrowserFetch ? await this.resolveChromeExecutableAsync() : null;
         if (chromePath) {
             try {
                 const html = await this.fetchWithBrowser(chromePath, targetUrl);
@@ -279,6 +353,14 @@ class FreeTipsMaxBetScraper {
         return snapshotPath && fs.existsSync(snapshotPath) ? fs.readFileSync(snapshotPath, "utf8") : null;
     }
 
+    isPlaceholderFeaturedTeam(value) {
+        if (!value) return true;
+        const normalized = String(value).replace(/\s+/g, " ").trim();
+        return /^(?:Home Team|Away Team|Team A|Team B|Player A|Player B|TBD|To Be Confirmed)$/i.test(normalized)
+            || /^(?:Home Team\s*\/\s*Away Team|Away Team\s*\/\s*Home Team)$/i.test(normalized)
+            || /(?:^|\s)(?:Home Team|Away Team|Team A|Team B|Player A|Player B)(?:\s|$)/i.test(normalized);
+    }
+
     isUsableSnapshot(url, html) {
         if (!html) return false;
 
@@ -286,7 +368,16 @@ class FreeTipsMaxBetScraper {
         const documentText = $("body").text().replace(/\s+/g, " ").trim();
         if (/betting\/$/i.test(url) && /Today's Betting Tips|Today’s Betting Tips/i.test(documentText)) return true;
         if (/bet-of-the-day/i.test(url) || /tennis-bet-of-the-day/i.test(url)) {
-            return $(".matchlist.betacctime").length > 0 && !/Today's Betting Tips & Acca Tips|Today’s Betting Tips & Acca Tips/i.test(documentText);
+            const featuredItem = $(".matchlist.betacctime").first();
+            if (!featuredItem.length) return false;
+            const teamsText = featuredItem.find(".match-name .m-name").text().trim();
+            const [homeTeam, awayTeam] = teamsText.split(/\s+v\s+|\s+vs\s+/i).map((team) => team.trim());
+            if (this.isPlaceholderFeaturedTeam(homeTeam) || this.isPlaceholderFeaturedTeam(awayTeam) || /Home Team\s*\/\s*Away Team/i.test(teamsText)) return false;
+
+            const pageDate = this.extractFeaturedDate($);
+            if (!pageDate) return false;
+            const now = new Date();
+            return pageDate.getFullYear() === now.getFullYear() && pageDate.getMonth() === now.getMonth() && pageDate.getDate() === now.getDate();
         }
 
         if (/Today's Betting Tips|Today’s Betting Tips/i.test(documentText)) return false;
@@ -298,10 +389,7 @@ class FreeTipsMaxBetScraper {
         try {
             const pathname = new URL(url, this.baseUrl).pathname;
             const slug = pathname.split("/").filter(Boolean).pop() || "";
-            const tokens = slug
-                .replace(/\d{8}-\d{4}/g, "")
-                .split(/[^a-z0-9]+/i)
-                .filter((token) => token.length > 3 && !/^(tips?|predictions?|betting|live|stream|and|the|vs?)$/i.test(token));
+            const tokens = slug.replace(/\d{8}-\d{4}/g, "").split(/[^a-z0-9]+/i).filter((token) => token.length > 3 && !/^(tips?|predictions?|betting|live|stream|and|the|vs?)$/i.test(token));
             const matchedTokens = tokens.filter((token) => documentText.toLowerCase().includes(token.toLowerCase()));
             return matchedTokens.length >= Math.min(2, tokens.length);
         } catch {
@@ -309,7 +397,7 @@ class FreeTipsMaxBetScraper {
         }
     }
 
-    async downloadPage(url, localFallback = null) {
+    async downloadPage(url, localFallback = null, { forceRefresh = false } = {}) {
         if (localFallback) {
             const html = this.readLocalHtml(localFallback);
             this.writePageSnapshot(url, html);
@@ -317,9 +405,18 @@ class FreeTipsMaxBetScraper {
         }
 
         const savedHtml = this.readPageSnapshot(url);
-        if (this.isUsableSnapshot(url, savedHtml)) return savedHtml;
+        if (!forceRefresh && this.isUsableSnapshot(url, savedHtml)) return savedHtml;
 
-        const html = await this.fetchWithAxiosOrBrowser(url);
+        let html;
+        try {
+            html = await this.fetchWithAxiosOrBrowser(url);
+        } catch (error) {
+            if (savedHtml) {
+                console.log(`Live fetch failed for ${url}, reusing saved snapshot as fallback.`);
+                return savedHtml;
+            }
+            throw error;
+        }
         this.writePageSnapshot(url, html);
         return html;
     }
@@ -334,24 +431,23 @@ class FreeTipsMaxBetScraper {
     async scrape() {
         try {
             const localFile = this.resolveLocalFilePath();
-
-            if (!localFile) {
-                throw new Error("No local HTML path available for freetips. Provide localHtmlPath or configure localHtmlCandidates.");
-            }
-
+            if (!localFile) throw new Error("No local HTML path available for freetips. Provide localHtmlPath or configure localHtmlCandidates.");
+            
             const useLocalFixture = Boolean(this.localHtmlPath) || fs.existsSync(localFile);
             const featuredUrls = [this.betOfTheDayUrl, this.tennisBetOfTheDayUrl];
             const featuredTips = [];
 
             for (const featuredUrl of featuredUrls) {
-                const featuredHtml = await this.downloadPage(featuredUrl);
-                const featuredTip = this.extractMainTip(cheerio.load(featuredHtml), featuredUrl);
-                if (featuredTip) {
-                    featuredTips.push({
-                        ...featuredTip,
-                        url: featuredTip.url || featuredUrl,
-                        detailsUrl: featuredTip.detailsUrl || featuredUrl,
-                    });
+                try {
+                    // These are the premium featured tips. Fetch them live on
+                    // every run; a saved page is only a failure fallback.
+                    const featuredHtml = await this.downloadPage(featuredUrl, null, { forceRefresh: true });
+                    const featuredTip = this.extractMainTip(cheerio.load(featuredHtml), featuredUrl);
+                    if (featuredTip && (featuredTip.selection || featuredTip.prediction || (featuredTip.homeTeam && featuredTip.awayTeam))) {
+                        featuredTips.push({ ...featuredTip, url: featuredTip.url || featuredUrl, detailsUrl: featuredTip.detailsUrl || featuredUrl, });
+                    }
+                } catch (error) {
+                    console.warn(`Skipping featured page ${featuredUrl}: ${error.message}`);
                 }
             }
 
@@ -394,12 +490,17 @@ class FreeTipsMaxBetScraper {
                 const detailsUrl = tip.detailsUrl || tip.url;
                 if (!detailsUrl || seen.has(detailsUrl)) continue;
 
-                await this.downloadPage(detailsUrl);
-                const enrichedTip = await enrichTip(tip);
-                if (!enrichedTip.selection && !enrichedTip.prediction) continue;
-                if (/^Raffle\.?$/i.test(enrichedTip.selection || enrichedTip.prediction || "")) continue;
-                results.push(enrichedTip);
-                seen.add(enrichedTip.detailsUrl || enrichedTip.url);
+                try {
+                    // await this.downloadPage(detailsUrl);
+                    await this.downloadPage(detailsUrl, null, { forceRefresh: true });
+                    const enrichedTip = await enrichTip(tip);
+                    if (!enrichedTip.selection && !enrichedTip.prediction) continue;
+                    if (/^Raffle\.?$/i.test(enrichedTip.selection || enrichedTip.prediction || "")) continue;
+                    results.push(enrichedTip);
+                    seen.add(enrichedTip.detailsUrl || enrichedTip.url);
+                } catch (error) {
+                    console.warn(`Skipping match preview ${detailsUrl}: ${error.message}`);
+                }
             }
 
             const orderedResults = results.sort((a, b) => {
@@ -426,6 +527,7 @@ class FreeTipsMaxBetScraper {
             if (/\/tennis\//.test(pathname)) return "Tennis";
             if (/\/cricket\//.test(pathname)) return "Cricket";
             if (/\/basketball\//.test(pathname)) return "Basketball";
+            if (/\/nfl\//.test(pathname)) return "American Football";
             if (/\/australian-rules\//.test(pathname)) return "Australian Rules";
             if (/\/rugby-league\//.test(pathname)) return "Rugby League";
             if (/\/rugby-union\//.test(pathname)) return "Rugby Union";
@@ -459,6 +561,7 @@ class FreeTipsMaxBetScraper {
             if (/\/rugby-league\//.test(pathname)) return "Rugby League";
             if (/\/rugby-union\//.test(pathname)) return "Rugby Union";
             if (/\/volleyball\//.test(pathname)) return "Volleyball";
+            if (/\/nfl\//.test(pathname)) return "NFL";
         } catch {
             // fall through to default below
         }
@@ -480,23 +583,29 @@ class FreeTipsMaxBetScraper {
         }
     }
 
+    extractFeaturedDate($) {
+        const monthMap = {
+            january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+            july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
+        };
+        const match = $("h1, .entry-title, .post-title").first().text().match(/(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})/);
+        if (!match) return null;
+        const day = Number(match[1]);
+        const month = monthMap[(match[2] || "").toLowerCase()];
+        const year = Number(match[3]);
+        if (typeof month !== "number" || !day || !year) return null;
+        return new Date(year, month, day);
+    }
+
     splitTeams(rawTitle) {
         if (!rawTitle) return [null, null];
 
-        const cleaned = rawTitle
-            .replace(/\s+/g, " ")
-            .replace(/[\u2013\u2014]/g, " - ")
-            .trim();
-
-        const vsMatch = cleaned.match(/^(.*?)\s+(?:v|vs)\s+(.*)$/i);
-        if (vsMatch) {
-            return [vsMatch[1].trim() || null, vsMatch[2].trim() || null];
-        }
+        const cleaned = rawTitle.replace(/\s+/g, " ").replace(/[\u2013\u2014]/g, " - ").trim();
+        const vsMatch = cleaned.match(/^(.*?)\s+(?:v|vs|@)\s+(.*)$/i);
+        if (vsMatch) return [vsMatch[1].trim() || null, vsMatch[2].trim() || null];
 
         const dashMatch = cleaned.match(/^(.*?)\s+-\s+(.*)$/);
-        if (dashMatch) {
-            return [dashMatch[1].trim() || null, dashMatch[2].trim() || null];
-        }
+        if (dashMatch) return [dashMatch[1].trim() || null, dashMatch[2].trim() || null];
 
         return [cleaned || null, null];
     }
@@ -514,7 +623,7 @@ class FreeTipsMaxBetScraper {
                 return false;
             }
 
-            if (/\/(?:esports|football|tennis|horse-racing|cricket|basketball|australian-rules|rugby-league|rugby-union|volleyball|rugby|boxing|golf|baseball|ice-hockey|darts|snooker|bookie-specials)\//.test(pathname)) {
+            if (/\/(?:esports|football|tennis|horse-racing|cricket|basketball|nfl|australian-rules|rugby-league|rugby-union|volleyball|rugby|boxing|golf|baseball|ice-hockey|darts|snooker|bookie-specials)\//.test(pathname)) {
                 return /\/(?:tips|predictions|live-stream|betting)\//.test(pathname) || /\d{8}-\d{4}/.test(pathname);
             }
 
@@ -649,10 +758,7 @@ class FreeTipsMaxBetScraper {
         const escaped = marketTokens.map((entry) => entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
         const marketPattern = escaped.sort((a, b) => b.length - a.length).join("|");
 
-        const postVerdictSegments = normalized
-            .split(/\b(?:Verdict|Quick Summary)\b/i)
-            .filter((segment) => segment && segment.length > 10)
-            .map((segment) => segment.replace(/^(?:\s*[-–—:]\s*)+/, ""));
+        const postVerdictSegments = normalized.split(/\b(?:Verdict|Quick Summary)\b/i).filter((segment) => segment && segment.length > 10).map((segment) => segment.replace(/^(?:\s*[-–—:]\s*)+/, ""));
 
         const patterns = [
             new RegExp(`([A-Z][A-Za-z0-9&.'/-]*(?:\\s+[A-Z][A-Za-z0-9&.'/-]*)*?)\\s+(?:${marketPattern})\\s*@\\s*(\\d+(?:\\.\\d+)?)`, "gi"),
@@ -662,7 +768,9 @@ class FreeTipsMaxBetScraper {
 
         const candidateFilter = (candidate, market) => {
             if (!candidate || candidate.length > 90) return false;
+            if (/^(?:Units?|Stake)$/i.test(candidate.trim())) return false;
             if (/(Quick Summary|Betting Predictions|Verdict|Where to Watch|Squad & Team News|Can Do Damage|Have Yet to Meet This Season|Deposit|Claim the|Referral code|NEWBONUS|T&Cs)/i.test(candidate)) return false;
+            if (/(Raffle|MAXBONUS|maxbets|Use code|Over 18|T&Cs apply|bonus-wrap)/i.test(candidate)) return false;
             if (/(?:^|\s)(Map|Maps)(?:\s|$)/i.test(candidate)) return false;
             if ((market || "").toLowerCase().includes("map handicap") && /(?:^|\s)(Map|Maps)(?:\s|$)/i.test(candidate)) return false;
             return /^[A-Z][A-Za-z0-9&.'/-]*(?:\s+[A-Z][A-Za-z0-9&.'/-]*)*$/.test(candidate);
@@ -690,19 +798,11 @@ class FreeTipsMaxBetScraper {
             if (hit) return hit;
         }
 
-        const titleMatch = normalized.match(/(?:^|\s)([A-Z][A-Za-z0-9&.' /-]+?\s+(?:v|vs)\s+[A-Z][A-Za-z0-9&.' /-]+?)(?=\s*(?:Tips|Betting Predictions|Betting Tips|Verdict|Reason for tip))/i);
-        if (titleMatch) {
-            return { market: null, selection: titleMatch[1].trim(), odds: null };
-        }
-
         return { market: null, selection: null, odds: null };
     }
 
     extractDetailMarketData($) {
-        const blocks = $("h1, h2, h3, p, li, div").toArray()
-            .map((element) => $(element).text().replace(/\s+/g, " ").trim())
-            .filter(Boolean)
-            .sort((left, right) => left.length - right.length);
+        const blocks = $("h1, h2, h3, p, li, div").toArray().map((element) => $(element).text().replace(/\s+/g, " ").trim()).filter(Boolean).sort((left, right) => left.length - right.length);
 
         for (const block of blocks) {
             const directMatch = block.match(/^(.+?)\s+(To Win Moneyline|Map Handicap|Match Handicap|Full-Time Result|Full Time Result|Double Chance|Draw No Bet|Anytime Goalscorer|First Goalscorer|Correct Score|Total Goals|Over|Under|BTTS|To Win|Win)\s*@\s*(\d+(?:\.\d+)?)/i);
@@ -718,6 +818,62 @@ class FreeTipsMaxBetScraper {
 
         const text = $("body").text().replace(/\s+/g, " ").trim();
         return this.extractMarketAndSelectionFromText(text);
+    }
+
+    extractRecommendations($) {
+        const marketTokens = [
+            "To Win Moneyline", "Match Winner", "Correct Score", "Map Handicap",
+            "Match Handicap", "Double Chance", "Draw No Bet", "Anytime Goalscorer",
+            "First Goalscorer", "Alternative Total Goals", "Total Goals",
+            "Both Teams To Score", "Both Teams to Score", "Full-Time Result",
+            "Full Time Result", "To Win Match", "To Win", "Over", "Under", "BTTS",
+        ];
+
+        const marketPattern = marketTokens.map((market) => market.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).sort((left, right) => right.length - left.length).join("|");
+        const pattern = new RegExp(`(?:Best\\s+Bet\\s*\\d*\\s*:\\s*)?(.+?)\\s+(${marketPattern})\\s*@\\s*(\\d+(?:\\.\\d+)?)(?:\\s+at\\s+[^-]+)?\\s*-\\s*(\\d+(?:\\.\\d+)?)\\s*Units?`, "gi");
+        const recommendations = [];
+        const seen = new Set();
+        const blocks = $("p, li, div").toArray()
+            .map((element) => $(element).text().replace(/\s+/g, " ").trim())
+            .filter((text) => text.length > 0 && text.length <= 400 && /@\s*\d+(?:\.\d+)?/i.test(text) && /\bUnits?\b/i.test(text));
+
+        for (const block of blocks) {
+            for (const match of block.matchAll(pattern)) {
+                const selection = (match[1] || "").replace(/^Best\s+Bet\s*\d*\s*:\s*/i, "").replace(/^(?:(?:\d+(?:\.\d+)?\s*)?Units?\s+)?Bet\s+at\s+\S+\s+/i, "").trim();
+                const market = (match[2] || "").trim();
+                const odds = Number(match[3]);
+                const stakeUnits = Number(match[4]);
+                if (!selection || selection.length > 90 || !Number.isFinite(odds) || !Number.isFinite(stakeUnits)) continue;
+                if (/^(?:Units?|Stake)$/i.test(selection) || /(?:Deposit|Referral|Bonus|Raffle)/i.test(selection)) continue;
+
+                const key = `${selection}|${market}|${odds}|${stakeUnits}`.toLowerCase();
+                if (seen.has(key)) continue;
+                seen.add(key);
+                recommendations.push({ selection, market, odds, stakeUnits });
+            }
+        }
+
+        return recommendations.sort((left, right) => right.stakeUnits - left.stakeUnits);
+    }
+
+    toExtraTips(recommendations, primary = null) {
+        // A recommendation can legitimately repeat the same market, selection,
+        // and odds with a different stake. Remove only the one promoted to the
+        // primary tip; every other published recommendation must be retained.
+        let primaryIndex = -1;
+        if (primary) {
+            primaryIndex = recommendations.findIndex((recommendation) => recommendation === primary);
+            if (primaryIndex < 0) {
+                primaryIndex = recommendations.findIndex((recommendation) =>
+                    recommendation.selection === primary.selection &&
+                    recommendation.market === primary.market &&
+                    recommendation.odds === primary.odds &&
+                    (primary.stakeUnits == null || recommendation.stakeUnits === primary.stakeUnits)
+                );
+            }
+        }
+
+        return recommendations.filter((_, index) => index !== primaryIndex).map(({ selection, market, odds, stakeUnits }) => ({ selection, market, odds, stakeUnits }));
     }
 
     async fetchDetailPage(url) {
@@ -779,7 +935,8 @@ class FreeTipsMaxBetScraper {
                 preview = preview.slice(0, 1500).trim();
             }
 
-            const detailData = this.extractDetailMarketData($);
+            const recommendations = this.extractRecommendations($);
+            const detailData = recommendations[0] || this.extractDetailMarketData($);
 
             return {
                 previewTitle: title,
@@ -790,12 +947,14 @@ class FreeTipsMaxBetScraper {
                 market: detailData.market,
                 selection: detailData.selection,
                 odds: detailData.odds,
+                extraTips: this.toExtraTips(recommendations, detailData),
             };
         } catch (error) {
             const fallbackText = (await axios.get(url, { headers: this.headers, timeout: 30000 }).catch(() => ({ data: "" }))).data || "";
             this.writePageSnapshot(url, fallbackText);
             const $ = cheerio.load(fallbackText);
-            const fallbackData = this.extractDetailMarketData($);
+            const recommendations = this.extractRecommendations($);
+            const fallbackData = recommendations[0] || this.extractDetailMarketData($);
 
             return {
                 previewTitle: null,
@@ -806,6 +965,7 @@ class FreeTipsMaxBetScraper {
                 market: fallbackData.market,
                 selection: fallbackData.selection,
                 odds: fallbackData.odds,
+                extraTips: this.toExtraTips(recommendations, fallbackData),
             };
         }
     }
@@ -829,6 +989,12 @@ class FreeTipsMaxBetScraper {
             const previewHref = $("a").filter((_, el) => $(el).text().trim() === "See full preview").attr("href");
             const detailsUrl = this.resolveUrl(previewHref) || pageUrl;
 
+            // Without a .matchlist.betacctime container the page has not actually
+            // published a tip today - only attempt a tip when a real selection
+            // AND odds can be pulled from the summary. This keeps generic page-
+            // page / news headlines from being mis-read as a prediction.
+            if (!detailData.selection || !detailData.odds) return null;
+
             return {
                 sport,
                 league,
@@ -847,13 +1013,14 @@ class FreeTipsMaxBetScraper {
                 analytics: null,
                 detailsUrl,
                 fixtureId: null,
-                extraTips: [],
+                extraTips: this.toExtraTips(this.extractRecommendations($), detailData),
             };
         }
 
         const market = item.find(".match-name").children("span").not(".m-name").first().text().trim();
         const teamsText = item.find(".match-name .m-name").text().trim();
         const [homeTeam, awayTeam] = teamsText.split(/\s+v\s+|\s+vs\s+/i).map((team) => team.trim());
+        if (this.isPlaceholderFeaturedTeam(homeTeam) || this.isPlaceholderFeaturedTeam(awayTeam) || /Home Team\s*\/\s*Away Team/i.test(teamsText)) return null;
         const selection = item.find(".plr-name").text().trim();
         const oddsText = item.find(".ods").attr("data-ods") || item.find(".ods").text();
         const odds = Number(oddsText?.replace(/,/g, ".")) || null;
@@ -884,7 +1051,7 @@ class FreeTipsMaxBetScraper {
             analytics: null,
             detailsUrl,
             fixtureId: null,
-            extraTips: [],
+            extraTips: this.toExtraTips(this.extractRecommendations($), { selection, market, odds }),
         };
     }
 }
