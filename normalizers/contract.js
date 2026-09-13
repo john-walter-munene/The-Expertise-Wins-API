@@ -17,8 +17,11 @@ const TIP_CONTRACT_FIELDS = [
     "market",
     "selection",
     "odds",
+    "stakeUnits",
     "previewTitle",
     "preview",
+    "verdict",
+    "tips",
     "analytics",
     "confidenceIndex",
     "predictedScore",
@@ -41,7 +44,13 @@ function buildTip(overrides = {}) {
     const tip = {};
 
     for (const field of TIP_CONTRACT_FIELDS) {
-        tip[field] = field === "extraTips" ? (overrides[field] ?? []) : (overrides[field] ?? null);
+        if (field === "tips" || field === "extraTips") {
+            tip[field] = Array.isArray(overrides[field]) ? overrides[field] : (overrides[field] ? [overrides[field]] : []);
+        } else if (field === "stakeUnits") {
+            tip[field] = overrides[field] ?? 2;
+        } else {
+            tip[field] = overrides[field] ?? null;
+        }
     }
 
     tip.scrapedAt = overrides.scrapedAt || new Date();

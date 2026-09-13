@@ -6,19 +6,12 @@ const { loadTestResults } = require("./test-results");
 
     // The individual provider tests have already fetched and saved these
     // normalized results. Loading them here avoids running any scraper twice.
-    const tipsBetTips = loadTestResults("tipsbet");
-    const vitiBetTips = loadTestResults("vitibet");
-    const premiumTips = loadTestResults("freetips");
-    const freeTips = [...tipsBetTips, ...vitiBetTips];
+    const allTips = loadTestResults("freetips");
 
-    const allTips = [...freeTips, ...premiumTips];
-
-    console.log(`Free tips: ${freeTips.length}`);
-    console.log(`Premium tips: ${premiumTips.length}`);
+    console.log(`FreeTips count: ${allTips.length}`);
 
     // Basic service checks
-    if (!Array.isArray(freeTips)) throw new Error("Free service must return an array");
-    if (!Array.isArray(premiumTips)) throw new Error("Premium service must return an array");
+    if (!Array.isArray(allTips)) throw new Error("FreeTips service must return an array");
     if (allTips.length === 0) throw new Error("No tips returned from services");
 
     const tipsBySource = allTips.reduce((groups, tip) => {

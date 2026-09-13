@@ -1,250 +1,394 @@
-const FREE_STAKES = { default: 2, };
-
 class TipsConsumptionClient {
     /**
-     * Consume the complete result from adminTips.getAllTips()
-     * Input: { free: [...], premium: [...] }
-     * Output: { freeCards: [...], premiumCards: [...] }
+     * This client is intentionally specialized for the freetips scraper only.
+     * Any legacy mixed-source data is filtered out so the service box only emits
+     * channel groups for the active publication flow:
+     * - maxbetVipCards: featured tips for Pikk Maxbet VIP
+     * - expertiseWinsFreeCards: listed football tips for The Expertise Wins Free Tips
+     * - pikkBetterVipCards: other-sport tips for PikkBetter VIP
      */
     consume({ free = [], premium = [] }) {
-        return { freeCards: this.consumeFreeTips(free), premiumCards: this.consumePremiumTips(premium), };
+        const freeTips = this.filterFreetips(Array.isArray(free) ? free : []);
+        const premiumTips = this.filterFreetips(Array.isArray(premium) ? premium : []);
+        const allTips = freeTips.concat(premiumTips);
+
+        const maxbetVip = this.groupMaxbetVip(allTips);
+        const expertiseWinsFree = this.groupExpertiseWinsFree(allTips);
+        const pikkBetterVip = this.groupPikkBetterVip(allTips);
+
+        return {
+            freeCards: this.consumeFreeTips(freeTips),
+            premiumCards: this.consumePremiumTips(premiumTips),
+            maxbetVipCards: maxbetVip,
+            expertiseWinsFreeCards: expertiseWinsFree,
+            pikkBetterVipCards: pikkBetterVip,
+        };
     }
 
-    // FREE TIPS
+    filterFreetips(tips) {
+        if (!Array.isArray(tips)) return [];
+        return tips.filter((tip) => {
+            if (!tip) return false;
+            const source = String(tip.source || "").toLowerCase();
+            return source === "" || source === "freetips";
+        });
+    }
+
+    groupMaxbetVip(tips) {
+        return this.filterAndFormat(tips, (tip) => this.isFeaturedTip(tip), this.formatMaxbetVipCard);
+    }
+
+    groupExpertiseWinsFree(tips) {
+        return this.filterAndFormat(tips, (tip) => this.isFootballListingTip(tip), this.formatExpertiseWinsFreeCard);
+    }
+
+    groupPikkBetterVip(tips) {
+        return this.filterAndFormat(tips, (tip) => !this.isFeaturedTip(tip) && !this.isFootballListingTip(tip), this.formatPikkBetterVipCard);
+    }
+
+    filterAndFormat(tips, predicate, formatter) {
+        if (!Array.isArray(tips)) return [];
+        return tips.filter(Boolean).filter(predicate).map((tip) => formatter.call(this, tip)).filter(Boolean);
+    }
+
+    consumeTips(tips) {
+        if (!Array.isArray(tips) || tips.length === 0) return [];
+        return tips.map((tip) => this.formatCard(tip)).filter(Boolean);
+    }
 
     consumeFreeTips(tips) {
-        const tipsBet = tips.filter(tip => tip.source === "tipsbet");
-        const vitibet = tips.filter(tip => tip.source === "vitibet");
-
-        const cards = [];
-
-        if (tipsBet.length > 0) cards.push(this.formatTipsBetCard(tipsBet));
-        if (vitibet.length > 0) cards.push(this.formatVitibetCard(vitibet));
-
-        return cards.filter(Boolean);
+        if (!Array.isArray(tips)) return [];
+        return tips.filter((tip) => tip && this.isFootballListingTip(tip)).map((tip) => this.formatPlainFreeCard(tip)).filter(Boolean);
     }
-
-    /**
-     * TipsBet
-     *
-     * Example:
-     *
-     * Saturday Pikker 📍
-     *
-     * Western Sydney Wanderers vs Sydney FC
-     * Sydney Win @2.55 - 1 Unit
-     * Sydney Win or Draw @1.55 - 3 Units
-     */
-    formatTipsBetCard(tips) {
-        const usable = tips.filter(tip => tip.homeTeam && tip.awayTeam && tip.selection && Number.isFinite(Number(tip.odds)));
-        if (!usable.length) return null;
-
-        const groups = this.groupFixtures(usable);
-        const lines = [ "🆓 Expertise Free Card1️⃣", "",];
-
-        for (const group of groups) {
-            lines.push(`${group.homeTeam} vs ${group.awayTeam}`);
-            for (const tip of group.tips) lines.push(this.formatFreeTipLine(tip));
-            lines.push("");
-        }
-
-        return lines.join("\n").trim();
-    }
-
-    formatFreeTipLine(tip) {
-        const selection = tip.selection || tip.market;
-        const odds = Number(tip.odds);
-        const stake = tip.stakeUnits ??this.getFreeStake(tip);
-        return `${selection} @${this.formatOdds(odds)} - ${stake} Unit${stake === 3 ? "" : "s"}`;
-    }
-
-    /**
-     * Vitibet deliberately has no odds in our normalized
-     * representation.
-     *
-     * Therefore we don't try to manufacture a betting line.
-     */
-    formatVitibetCard(tips) {
-        const usable = tips.filter(tip => tip.homeTeam && tip.awayTeam && tip.selection);
-        if (!usable.length) return null;
-
-        const groups = this.groupFixtures(usable);
-        const lines = ["🆓 Expertise Free Card1️2️⃣", "",];
-
-        for (const group of groups) {
-            lines.push(`${group.homeTeam} vs ${group.awayTeam}`);
-            lines.push(group.tips.map(tip => tip.selection || tip.market).join(" / "));
-            lines.push("");
-        }
-
-        return lines.join("\n").trim();
-    }
-
-    // PREMIUM / MAXBET
 
     consumePremiumTips(tips) {
-        if (!Array.isArray(tips) || tips.length === 0) return [];
-        return tips.map(tip => this.formatPremiumCard(tip)).filter(Boolean);
+        if (!Array.isArray(tips)) return [];
+        return tips.filter((tip) => tip && (this.isFeaturedTip(tip) || !this.isFootballListingTip(tip))).map((tip) => this.formatPremiumCard(tip)).filter(Boolean);
+    }
+
+    isFeaturedTip(tip) {
+        if (!tip) return false;
+        const sport = String(tip.sport || "").toLowerCase();
+        const previewTitle = String(tip.previewTitle || tip.competition || "").toLowerCase();
+        const hasFeaturedFlag = Boolean(tip.isFeatured);
+        return hasFeaturedFlag || previewTitle.includes("bet of the day") || (sport === "tennis" && previewTitle.includes("tennis bet of the day"));
+    }
+
+    isFootballListingTip(tip) {
+        if (!tip) return false;
+        const sport = String(tip.sport || "").toLowerCase();
+        if (sport !== "football" && sport !== "soccer") return false;
+        return !this.isFeaturedTip(tip);
     }
 
     /**
-     * Every premium listing gets the same underlying structure.
-     *
-     * Featured listings get their special heading:
+     * Formats a tip object into the clean Telegram / presentation card:
      *
      * Bet of the day❗️
+     * ⚽️ || Liverpool v PSG
+     * UEFA Champions League
+     * Beginning: 23:00 Kenyan Time
+     * Bet: PSG
+     * Stake: 3 Units
      *
-     * 🎾 || Tennis Bet of the Day❗️
+     * <Verdict Narrative>
      *
-     * Ordinary listings simply get:
-     *
-     * ⚽️ || Team A v Team B
-     *
-     * This means the presentation logic doesn't care where
-     * the premium tip came from.
+     * BTTS & Over 3.5 Goals @2.40 - 2 Units
+     * PSG Win @2.50 - 2 Units
      */
-    formatPremiumCard(tip) {
-        if (!tip.homeTeam || !tip.awayTeam) return null;
+    formatCard(tip) {
+        if (!tip) return null;
+        if (!tip.homeTeam && !tip.selection) return null;
 
-        const profile = this.buildPremiumProfile(tip);
         const lines = [];
+        const sportEmoji = this.getSportEmoji(tip.sport);
+        const title = String(tip.previewTitle || tip.competition || "").toLowerCase();
+        const isTennisBetOfDay = title.includes("tennis bet of the day") || (tip.isFeatured && String(tip.sport).toLowerCase() === "tennis");
+        const isBetOfDay = title.includes("bet of the day") || tip.isFeatured;
 
-        // Heading
-        if (profile.heading) {
-            lines.push(profile.heading);
+        // 1. Heading
+        if (isTennisBetOfDay) {
+            lines.push("🎾 || Tennis Bet of the Day❗️");
+        } else if (isBetOfDay) {
+            lines.push("Bet of the day❗️");
+        } else {
+            lines.push(`${sportEmoji} || ${tip.sport || "Match"}`);
+        }
+
+        // 2. Fixture Line
+        if (tip.homeTeam && tip.awayTeam) {
+            if (isBetOfDay) {
+                lines.push(`${sportEmoji} || ${tip.homeTeam} v ${tip.awayTeam}`);
+            } else {
+                lines.push(`${tip.homeTeam} vs ${tip.awayTeam}`);
+            }
+        }
+
+        // 3. Competition Line (if meaningful)
+        if (
+            tip.competition &&
+            !/^(Bet of the Day|Tennis Bet of the Day|Betting Tips)$/i.test(tip.competition) &&
+            tip.competition.toLowerCase() !== String(tip.sport || "").toLowerCase()
+        ) {
+            lines.push(tip.competition);
+        }
+
+        // 4. Kickoff Line
+        if (tip.kickoff) {
+            const ko = String(tip.kickoff).trim();
+            const koText = ko.toLowerCase().includes("kenyan time") ? ko : `${ko} Kenyan Time`;
+            lines.push(`Beginning: ${koText}`);
+        }
+
+        // 5. Main Bet & Stake
+        const tipsList = Array.isArray(tip.tips) && tip.tips.length > 0 ? tip.tips : [];
+        const mainTip = tipsList.length > 0
+            ? tipsList.reduce((prev, curr) => (Number(curr.units || 0) > Number(prev.units || 0) ? curr : prev), tipsList[0])
+            : {
+                selection: tip.selection || tip.market || "Selected Tip",
+                units: tip.stakeUnits ?? 2,
+                odds: tip.odds,
+            };
+
+        lines.push(`Bet: ${mainTip.selection}`);
+        lines.push(`Stake: ${mainTip.units || 2} Units`);
+
+        // 6. Verdict / Reason Narrative
+        const verdict = this.cleanPreview(tip.verdict || tip.preview);
+        if (verdict) {
+            lines.push("");
+            lines.push(verdict);
             lines.push("");
         }
 
-        // Fixture
-        lines.push(`${this.getSportEmoji(tip.sport)} || ${tip.homeTeam} v ${tip.awayTeam}`);
+        // 7. All Tips lines
+        if (tipsList.length > 0) {
+            for (const t of tipsList) {
+                const oddsText = Number.isFinite(Number(t.odds)) ? ` @${this.formatOdds(t.odds)}` : "";
+                const units = Number(t.units ?? 2);
+                lines.push(`${t.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            }
+        } else if (mainTip.selection) {
+            const oddsText = Number.isFinite(Number(mainTip.odds)) ? ` @${this.formatOdds(mainTip.odds)}` : "";
+            const units = Number(mainTip.units ?? 2);
+            lines.push(`${mainTip.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+        }
 
-        // Competition
-        if (tip.competition)lines.push(tip.competition);
+        return lines.join("\n").trim();
+    }
 
-        // Kickoff
-        if (tip.kickoff) lines.push(`Beginning: ${tip.kickoff} Kenyan Time`); 
+    formatMaxbetVipCard(tip) {
+        if (!tip) return null;
 
-        // Main bet
-        lines.push(`Bet: ${profile.mainTip.selection}`);
-        lines.push(`Stake: ${profile.mainTip.stake} Units`);
-        lines.push("");
+        const sportEmoji = this.getSportEmoji(tip.sport);
+        const kickoff = tip.kickoff ? String(tip.kickoff).trim() : "";
+        const kickoffText = kickoff ? (kickoff.toLowerCase().includes("kenyan time") ? kickoff : `${kickoff} Kenyan Time`) : "";
+        const isFeaturedFootball = /bet of the day/i.test(String(tip.previewTitle || tip.competition || "")) || Boolean(tip.isFeatured);
+        const isFeaturedTennis = String(tip.sport || "").toLowerCase() === "tennis" && (isFeaturedFootball || /tennis bet of the day/i.test(String(tip.previewTitle || tip.competition || "")));
 
-        // Reason
-        if (tip.preview) {
-            const reason = this.cleanPreview(tip.preview);
+        const mainTip = this.getMainTip(tip);
+        const mainSelection = mainTip ? (mainTip.selection || mainTip.market || tip.selection || tip.market) : (tip.selection || tip.market || "Selected Tip");
+        const mainStake = this.getMainStake(tip);
+        const verdict = this.cleanPreview(tip.verdict || tip.preview);
+        const tipsList = Array.isArray(tip.tips) ? tip.tips : [];
+        const lines = [];
 
-            if (reason) {
-                lines.push(reason);
+        if (isFeaturedFootball) {
+            lines.push("[07/09/2026 12:43] Pikk Maxbet VIP: Bet of the day❗️");
+            lines.push("");
+            lines.push(`${sportEmoji} || ${tip.homeTeam} v ${tip.awayTeam}`);
+            lines.push("Bet of the Day");
+            if (kickoffText) lines.push(`Beginning: ${kickoffText}`);
+            lines.push(`Bet: ${mainSelection}`);
+            if (mainStake != null) lines.push(`Stake: ${mainStake} Units`);
+            if (verdict) {
+                lines.push("");
+                lines.push(verdict);
+                lines.push("");
+            }
+        } else if (isFeaturedTennis) {
+            lines.push("[07/09/2026 12:43] Pikk Maxbet VIP: ");
+            lines.push(`${sportEmoji} || ${tip.homeTeam} v ${tip.awayTeam}`);
+            if (kickoffText) lines.push(`Beginning: ${kickoffText}`);
+            lines.push(`Bet: ${String(tip.market || mainSelection || "Sets")}`);
+            if (mainStake != null) lines.push(`Stake: ${mainStake} Units`);
+            if (verdict) {
+                lines.push("");
+                lines.push(verdict);
+                lines.push("");
+            }
+        } else {
+            lines.push("[07/09/2026 12:43] Pikk Maxbet VIP:");
+            lines.push(`${sportEmoji} || ${tip.homeTeam} v ${tip.awayTeam}`);
+            if (kickoffText) lines.push(`Beginning: ${kickoffText}`);
+            if (mainSelection) lines.push(`Bet: ${mainSelection}`);
+            if (mainStake != null) lines.push(`Stake: ${mainStake} Units`);
+            if (verdict) {
+                lines.push("");
+                lines.push(verdict);
                 lines.push("");
             }
         }
 
-        // All tips
-
-        const allTips = this.getAllPremiumTips(tip, profile.mainTip);
-        for (const bettingTip of allTips) lines.push(this.formatPremiumTipLine(bettingTip));
+        if (tipsList.length > 0) {
+            for (const item of tipsList) {
+                const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
+                const units = Number(item.units ?? item.stakeUnits ?? 1);
+                lines.push(`${item.selection || item.market || "Tip"}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            }
+        } else if (mainSelection) {
+            const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
+            const units = Number(tip.stakeUnits ?? tip.units ?? 1);
+            lines.push(`${mainSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+        }
 
         return lines.join("\n").trim();
     }
 
-    buildPremiumProfile(tip) {
-        const title = String(tip.previewTitle || "").toLowerCase();
+    formatExpertiseWinsFreeCard(tip) {
+        if (!tip) return null;
 
-        const isBetOfDay = title.includes("bet of the day");
-        const isTennisBetOfDay = title.includes("tennis bet of the day");
+        const lines = ["The Expertise Wins Free Tips:", ""];
+        const fixture = tip.homeTeam && tip.awayTeam ? `${tip.homeTeam} vs ${tip.awayTeam}` : (tip.selection || "Match");
+        lines.push(fixture);
 
-        let heading = null;
-        if (isTennisBetOfDay) heading = "🎾 || Tennis Bet of the Day❗️";
-        else if (isBetOfDay) heading = "Bet of the day❗️";
-        
-        /*
-         * Main tip is determined by the highest stake.
-         *
-         * We inspect extraTips as well because your
-         * normalized data can contain the main tip there.
-         */
-        const candidates = [
-            {
-                selection: tip.selection,
-                market: tip.market,
-                odds: tip.odds,
-                stakeUnits: tip.stakeUnits ?? 4,
-            },
-            ...(Array.isArray(tip.extraTips)? tip.extraTips : []),
-        ].filter(item => item && item.selection);
-
-        const mainTip = candidates.reduce(
-            (highest, current) => {
-                const highestStake = Number(highest.stakeUnits ?? 0);
-                const currentStake = Number(current.stakeUnits ?? 0);
-                return currentStake > highestStake ? current : highest;
-            },
-            candidates[0]);
-
-        return {
-            heading,
-            mainTip: {
-                selection: mainTip?.selection || tip.selection || tip.market || "Selected Tip",
-                odds: Number.isFinite(Number(mainTip?.odds))? Number(mainTip.odds) : null,
-                stake: Number(mainTip?.stakeUnits ?? 4),
-            },
-        };
-    }
-
-    /**
-     * The "All tips" section.
-     *
-     * Main tip is always included first.
-     * Additional tips follow it.
-     */
-    getAllPremiumTips(tip, mainTip) {
-        const tips = [];
-
-        tips.push({ selection: mainTip.selection, odds: mainTip.odds, stakeUnits: mainTip.stake, });
-        const extras = Array.isArray(tip.extraTips) ? tip.extraTips: [];
-
-        for (const extra of extras) {
-            if (!extra?.selection) continue;
-
-            // Don't duplicate the main tip.
-            const isDuplicate = extra.selection === mainTip.selection && Number(extra.odds) === Number(mainTip.odds);
-            if (isDuplicate) continue;
-            
-            tips.push({
-                selection: extra.selection,
-                odds: Number.isFinite(Number(extra.odds)) ? Number(extra.odds) : null,
-                stakeUnits: extra.stakeUnits ?? 2,
-            });
+        const tipsList = Array.isArray(tip.tips) ? tip.tips : [];
+        if (tipsList.length > 0) {
+            for (const item of tipsList) {
+                const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
+                const units = Number(item.units ?? item.stakeUnits ?? 1);
+                lines.push(`${item.selection || item.market || "Tip"}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            }
+        } else if (tip.selection) {
+            const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
+            const units = Number(tip.stakeUnits ?? tip.units ?? 1);
+            lines.push(`${tip.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
         }
 
-        return tips;
+        return lines.join("\n").trim();
     }
 
-    formatPremiumTipLine(tip) {
-        const oddsText = Number.isFinite(Number(tip.odds))? ` @${this.formatOdds(tip.odds)}`: "";
-        const stake = Number(tip.stakeUnits ?? 2);
-        return `${tip.selection}${oddsText} - ${stake} Unit${stake === 1 ? "" : "s"}`;
+    formatPikkBetterVipCard(tip) {
+        const output = this.formatMaxbetVipCard(tip);
+        if (!output) return null;
+        return output.replace("Pikk Maxbet VIP", "PikkBetter VIP");
+    }
+
+    formatChannelCard({ tip, header, fixturePrefix, showBetOfDayHeader, includeCompetition, includeMarketLabel, titlePrefix, mainChannelName }) {
+        if (!tip) return null;
+
+        const sportEmoji = this.getSportEmoji(tip.sport);
+        const lines = [];
+
+        lines.push(`${header}${showBetOfDayHeader ? "Bet of the day❗️" : ""}`.trim());
+
+        if (tip.homeTeam && tip.awayTeam) {
+            const fixtureText = `${fixturePrefix ? `${fixturePrefix} ` : ""}${tip.homeTeam} v ${tip.awayTeam}`.trim();
+            if (fixturePrefix) {
+                lines.push(fixtureText);
+            } else {
+                lines.push(`${tip.homeTeam} vs ${tip.awayTeam}`);
+            }
+        }
+
+        if (showBetOfDayHeader && tip.homeTeam && tip.awayTeam) {
+            lines.push("Bet of the Day");
+        }
+
+        const kickoff = tip.kickoff ? String(tip.kickoff).trim() : "";
+        if (kickoff) {
+            const kickoffText = kickoff.toLowerCase().includes("kenyan time") ? kickoff : `${kickoff} Kenyan Time`;
+            lines.push(`Beginning: ${kickoffText}`);
+        }
+
+        const selection = this.getMainSelection(tip);
+        if (selection) {
+            lines.push(`Bet: ${selection}`);
+        }
+
+        const stake = this.getMainStake(tip);
+        if (stake != null) {
+            lines.push(`Stake: ${stake} Units`);
+        }
+
+        const verdict = this.cleanPreview(tip.verdict || tip.preview);
+        if (verdict) {
+            lines.push(verdict);
+        }
+
+        const listedTips = Array.isArray(tip.tips) ? tip.tips : [];
+        if (listedTips.length > 0) {
+            for (const item of listedTips) {
+                const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
+                const units = Number(item.units ?? item.stakeUnits ?? 1);
+                lines.push(`${item.selection || item.market || "Tip"}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            }
+        } else if (tip.selection) {
+            const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
+            const units = Number(tip.stakeUnits ?? tip.units ?? 1);
+            lines.push(`${tip.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+        }
+
+        return lines.join("\n").trim();
+    }
+
+    getMainSelection(tip) {
+        const mainTip = this.getMainTip(tip);
+        return mainTip ? mainTip.selection || mainTip.market || tip.selection : tip.selection || tip.market || "Selected Tip";
+    }
+
+    getMainStake(tip) {
+        const mainTip = this.getMainTip(tip);
+        const value = Number(mainTip ? (mainTip.units ?? mainTip.stakeUnits ?? tip.stakeUnits ?? 2) : (tip.stakeUnits ?? tip.units ?? 2));
+        return Number.isFinite(value) ? value : 2;
+    }
+
+    getMainTip(tip) {
+        const tipList = Array.isArray(tip.tips) && tip.tips.length > 0 ? tip.tips : [];
+        if (tipList.length === 0) {
+            return {
+                selection: tip.selection || tip.market || "Selected Tip",
+                units: tip.stakeUnits ?? 2,
+                odds: tip.odds,
+            };
+        }
+
+        return tipList.reduce((prev, curr) => (Number(curr.units ?? curr.stakeUnits ?? 0) > Number(prev.units ?? prev.stakeUnits ?? 0) ? curr : prev), tipList[0]);
+    }
+
+    formatPremiumCard(tip) {
+        return this.formatCard(tip);
+    }
+
+    formatPlainFreeCard(tip) {
+        if (!tip) return null;
+
+        const lines = [];
+        const fixture = tip.homeTeam && tip.awayTeam ? `${tip.homeTeam} vs ${tip.awayTeam}` : (tip.selection || "Match");
+        lines.push(fixture);
+
+        const listedTips = Array.isArray(tip.tips) ? tip.tips : [];
+        if (listedTips.length > 0) {
+            for (const item of listedTips) {
+                const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
+                const units = Number(item.units ?? item.stakeUnits ?? 1);
+                lines.push(`${item.selection || item.market || "Tip"}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            }
+        } else if (tip.selection) {
+            const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
+            const units = Number(tip.stakeUnits ?? tip.units ?? 1);
+            lines.push(`${tip.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+        }
+
+        return lines.join("\n").trim();
+    }
+
+    formatFreeCard(tips) {
+        if (!Array.isArray(tips) || tips.length === 0) return null;
+        return tips.filter((tip) => tip && this.isFootballListingTip(tip)).map((t) => this.formatPlainFreeCard(t)).filter(Boolean).join("\n\n----------------------------------------\n\n");
     }
 
     // HELPERS
-
-    groupFixtures(tips) {
-        const groups = new Map();
-
-        for (const tip of tips) {
-            const key = [ tip.homeTeam, tip.awayTeam,].join("::");
-            if (!groups.has(key)) groups.set(key, { homeTeam: tip.homeTeam, awayTeam: tip.awayTeam, tips: [], });
-            groups.get(key).tips.push(tip);
-        }
-
-        return Array.from(groups.values());
-    }
-
-    getFreeStake(tip) {
-        const odds = Number(tip.odds);
-        if (odds >= 3) return 1;
-        return 2;
-    }
 
     formatOdds(odds) {
         const value = Number(odds);
@@ -254,21 +398,33 @@ class TipsConsumptionClient {
 
     getSportEmoji(sport) {
         const value = String(sport || "").toLowerCase();
-
         if (value.includes("tennis")) return "🎾";
-        if (value.includes("football")) return "⚽️";
+        if (value.includes("football") || value.includes("soccer")) return "⚽️";
         if (value.includes("basketball")) return "🏀";
         if (value.includes("baseball")) return "⚾️";
         if (value.includes("rugby")) return "🏉";
         if (value.includes("esport")) return "🎮";
-
+        if (value.includes("hockey")) return "🏒";
+        if (value.includes("cricket")) return "🏏";
         return "🎯";
     }
 
     cleanPreview(preview) {
         if (!preview) return "";
-        return String(preview).replace(/\\"/g, '"').replace(/\\n/g, " ").replace(/\s+/g, " ").trim();
+        let text = String(preview);
+        // Strip escaped JSON-LD / schema attributes
+        text = text.replace(/",\s*"articleSection":[\s\S]*$/i, "");
+        text = text.replace(/"articleBody":[\s\S]*$/i, "");
+        text = text.replace(/@type[\s\S]*$/i, "");
+        // Strip CSS blocks
+        text = text.replace(/<style[\s\S]*?<\/style>/gi, "");
+        text = text.replace(/\.pSocial[^{]*\{[^}]*\}/g, "");
+        // Strip HTML tags
+        text = text.replace(/<[^>]+>/g, " ");
+        // Normalize whitespace and unescape quotes
+        text = text.replace(/\\"/g, '"').replace(/\\n/g, " ").replace(/\s+/g, " ").trim();
+        return text;
     }
 }
 
-module.exports = TipsConsumptionClient;
+module.exports = { TipsConsumptionClient };
