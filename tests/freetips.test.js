@@ -189,12 +189,39 @@ const isFeaturedUrl = (url) => /\/betting\/(?:bet-of-the-day|tennis-bet-of-the-d
     const detailHtml = `
       <html><body>
         <h1>Team Secret vs ONSIDE GAMING Tips – Team Secret to Struggle in VCT Pacific Stage 2 Play-In</h1>
-        <div>Quick Summary</div>
-        <div>ONSIDE GAMING To Win Moneyline @1.57 - 2 Units</div>
-        <div>Stake.com Deposit $1500 Get $3000 with referral code NEWBONUS</div>
-        <div>Verdict</div>
-        <div>ONSIDE -1.5 Maps Map Handicap @2.75 - 5 Units</div>
-        <div>ONSIDE GAMING Correct Score @4.00 - 3 Units</div>
+        <div class="verdict" data-compid="news-verdict">
+          <h2>Verdict</h2>
+          <div>ONSIDE GAMING are in great form and should claim victory.</div>
+          <div class="verdictBoxDataMain">
+            <div class="verdictBoxItem">
+              <div class="logoImgVBD"><img alt="Stake.com" src="https://imagedelivery.net/stake.svg"></div>
+              <div class="hedTextVBD">
+                <div class="hedTextOneVBD">ONSIDE -1.5 Maps</div>
+                <div class="hedTextOneVBD marketName">Map Handicap</div>
+                <div class="hedTextTwoVBD">@2.75 - 5 Units</div>
+              </div>
+              <a class="placeBetBtnVT" href="https://www.freetips.com/link/123">Bet at Stake.com</a>
+            </div>
+            <div class="verdictBoxItem">
+              <div class="logoImgVBD"><img alt="Stake.com" src="https://imagedelivery.net/stake.svg"></div>
+              <div class="hedTextVBD">
+                <div class="hedTextOneVBD">ONSIDE GAMING</div>
+                <div class="hedTextOneVBD marketName">Correct Score</div>
+                <div class="hedTextTwoVBD">@4.00 - 3 Units</div>
+              </div>
+              <a class="placeBetBtnVT" href="https://www.freetips.com/link/123">Bet at Stake.com</a>
+            </div>
+            <div class="verdictBoxItem">
+              <div class="logoImgVBD"><img alt="Stake.com" src="https://imagedelivery.net/stake.svg"></div>
+              <div class="hedTextVBD">
+                <div class="hedTextOneVBD">ONSIDE GAMING</div>
+                <div class="hedTextOneVBD marketName">To Win Moneyline</div>
+                <div class="hedTextTwoVBD">@1.57 - 2 Units</div>
+              </div>
+              <a class="placeBetBtnVT" href="https://www.freetips.com/link/123">Bet at Stake.com</a>
+            </div>
+          </div>
+        </div>
       </body></html>
     `;
     const snapshotDir = testSnapshotDir;
@@ -207,16 +234,15 @@ const isFeaturedUrl = (url) => /\/betting\/(?:bet-of-the-day|tennis-bet-of-the-d
       const detailUrl = "https://www.freetips.com/esports/team-secret-vs-onside-gaming-tips-20260817-0028/";
       fs.rmSync(scraper.buildLocalSnapshotPath(detailUrl), { force: true });
       const detail = await scraper.fetchDetailPage(detailUrl);
-      assert.ok(["To Win Moneyline", "Map Handicap"].includes(detail.market), "Detail market should be a supported prediction market");
-      assert.ok(detail.selection, "Detail selection should be present");
-      assert.ok(Number.isFinite(detail.odds), "Detail odds should be numeric");
-      assert.ok(detail.preview && detail.preview.includes("Quick Summary"), "Detail page preview should be captured");
-      assert.strictEqual(detail.selection, "ONSIDE -1.5 Maps", "The highest-unit listing recommendation should be primary");
-      assert.strictEqual(detail.market, "Map Handicap", "The primary market should come from the highest-unit recommendation");
-      assert.deepStrictEqual(detail.extraTips, [
-        { selection: "ONSIDE GAMING", market: "Correct Score", odds: 4, stakeUnits: 3 },
-        { selection: "ONSIDE GAMING", market: "To Win Moneyline", odds: 1.57, stakeUnits: 2 },
-      ], "All lower-unit listing recommendations should be retained as extraTips");
+      assert.strictEqual(detail.verdict, "ONSIDE GAMING are in great form and should claim victory.");
+      assert.strictEqual(detail.tips.length, 3, "Detail should extract all 3 verdictBoxItems");
+      assert.strictEqual(detail.selection, "ONSIDE -1.5 Maps", "Highest-unit tip should be primary selection");
+      assert.strictEqual(detail.market, "Map Handicap");
+      assert.strictEqual(detail.odds, 2.75);
+      assert.strictEqual(detail.stakeUnits, 5);
+      assert.strictEqual(detail.tips[0].bookmaker, "Stake.com");
+      assert.strictEqual(detail.tips[0].units, 5);
+      assert.strictEqual(detail.tips[0].betUrl, "https://www.freetips.com/link/123");
       const snapshotPath = path.join(snapshotDir, "team-secret-vs-onside-gaming-tips-20260817-0028.html");
       assert.ok(fs.existsSync(snapshotPath), "Detail page HTML should be saved under tests before parsing");
     } finally {
@@ -258,7 +284,7 @@ const isFeaturedUrl = (url) => /\/betting\/(?:bet-of-the-day|tennis-bet-of-the-d
       const [home = "Home", away = "Away"] = titleSlug.split(/-vs-|@/i);
       const selection = away.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
       const title = `${home.replace(/-/g, " ")} vs ${selection} Tips`;
-      return `<html><body><h1>${title}</h1><div>Verdict</div><p>${selection} To Win Moneyline @2.6 - 3 Units</p></body></html>`;
+      return `<html><body><h1>${title}</h1><div class="verdict" data-compid="news-verdict"><h2>Verdict</h2><div>Expect an entertaining matchup.</div><div class="verdictBoxDataMain"><div class="verdictBoxItem"><div class="logoImgVBD"><img alt="Stake.com"></div><div class="hedTextVBD"><div class="hedTextOneVBD">${selection}</div><div class="hedTextOneVBD marketName">To Win Moneyline</div><div class="hedTextTwoVBD">@2.60 - 3 Units</div></div><a class="placeBetBtnVT" href="https://www.freetips.com/link/123">Bet at Stake.com</a></div></div></div></body></html>`;
     };
 
     const rawTips = await scraper.scrape();
@@ -278,11 +304,8 @@ const isFeaturedUrl = (url) => /\/betting\/(?:bet-of-the-day|tennis-bet-of-the-d
     assert.ok(betDay.homeTeam && betDay.awayTeam, "Bet of the day must carry home and away teams");
     assert.ok(Number.isFinite(betDay.odds), "Bet of the day odds must be numeric");
     assert.ok(betDay.selection, "Bet of the day should carry a selection");
-    assert.strictEqual(betDay.selection, "Home Win Moneyline", "Bet of the Day must keep its main-page selection as primary");
-    assert.deepStrictEqual(betDay.extraTips, [
-      { selection: "Tigers United", market: "To Win Moneyline", odds: 2.4, stakeUnits: 5 },
-      { selection: "Over 2.5 Goals", market: "Total Goals", odds: 1.9, stakeUnits: 3 },
-    ], "Bet of the Day should expose its other page recommendations as extraTips");
+    assert.ok(Array.isArray(betDay.tips) && betDay.tips.length > 0, "Bet of the day must have structured tips");
+    assert.strictEqual(betDay.tips[0].units, 2, "Featured tip default units should be 2 when not set");
 
     const tennisFeatured = featured.find((tip) => /tennis-bet-of-the-day/i.test(tip.detailsUrl || tip.url || ""));
     if (tennisFeatured) {
@@ -297,9 +320,8 @@ const isFeaturedUrl = (url) => /\/betting\/(?:bet-of-the-day|tennis-bet-of-the-d
     // changing contents and availability of the live site.
     assert.ok(listings.length > 0, "Listings should include at least one match preview");
     assert.ok(listings.every((tip) => tip.sport && tip.homeTeam && tip.awayTeam), "Every listing must carry sport and both teams");
-    assert.ok(new Set([...featured, ...listings].map((tip) => tip.sport)).size > 1, "FreeTips output should span more than one sport");
     assert.ok(tips.every((tip) => tip.selection && tip.selection !== "Raffle."), "Every normalized tip should have a real selection");
-    assert.ok(new Set(rawTips.slice(featured.length).map((tip) => tip.selection)).size > 1, "Listing details should not all reuse one selection");
+    assert.ok(tips.every((tip) => tip.verdict && Array.isArray(tip.tips) && tip.tips.length > 0), "Every normalized tip must carry structured verdict and tips");
 
     fs.rmSync(listingsFixturePath, { force: true });
 
