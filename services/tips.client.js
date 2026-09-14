@@ -7,6 +7,22 @@ class TipsConsumptionClient {
      * - expertiseWinsFreeCards: listed football tips for The Expertise Wins Free Tips
      * - pikkBetterVipCards: other-sport tips for PikkBetter VIP
      */
+    async loadFromJson(source = "freetips") {
+        const { loadTestResults } = require("../tests/test-results");
+        const allTips = loadTestResults(source);
+
+        const freeTips = allTips.filter((tip) => this.isFootballListingTip(tip));
+        const premiumTips = allTips.filter((tip) => tip && (this.isFeaturedTip(tip) || !this.isFootballListingTip(tip)));
+        const grouped = this.consume({ free: freeTips, premium: premiumTips });
+
+        return {
+            allTips,
+            freeTips,
+            premiumTips,
+            ...grouped,
+        };
+    }
+
     consume({ free = [], premium = [] }) {
         const freeTips = this.filterFreetips(Array.isArray(free) ? free : []);
         const premiumTips = this.filterFreetips(Array.isArray(premium) ? premium : []);
@@ -63,15 +79,52 @@ class TipsConsumptionClient {
 
     consumePremiumTips(tips) {
         if (!Array.isArray(tips)) return [];
-        return tips.filter((tip) => tip && (this.isFeaturedTip(tip) || !this.isFootballListingTip(tip))).map((tip) => this.formatPremiumCard(tip)).filter(Boolean);
+
+        const seen = new Set();
+        const sortedTips = [...tips]
+            .filter((tip) => tip && (this.isFeaturedTip(tip) || !this.isFootballListingTip(tip)))
+            .sort((a, b) => this.getPremiumPriority(a) - this.getPremiumPriority(b))
+            .filter((tip) => {
+                const key = this.getTipIdentityKey(tip);
+                if (!key) return true;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            })
+            .map((tip) => this.formatPremiumCard(tip))
+            .filter(Boolean);
+
+        return sortedTips;
     }
 
     isFeaturedTip(tip) {
         if (!tip) return false;
         const sport = String(tip.sport || "").toLowerCase();
-        const previewTitle = String(tip.previewTitle || tip.competition || "").toLowerCase();
+        const competition = String(tip.competition || "").toLowerCase();
+        const previewTitle = String(tip.previewTitle || "").toLowerCase();
+        const combinedText = `${competition} ${previewTitle}`.trim();
         const hasFeaturedFlag = Boolean(tip.isFeatured);
-        return hasFeaturedFlag || previewTitle.includes("bet of the day") || (sport === "tennis" && previewTitle.includes("tennis bet of the day"));
+        const isBetOfDay = /bet of the day/i.test(combinedText) || /bet of the day/i.test(competition);
+        const isTennisBetOfDay = /tennis bet of the day/i.test(combinedText) || (sport === "tennis" && /bet of the day/i.test(combinedText));
+        return hasFeaturedFlag || isBetOfDay || isTennisBetOfDay;
+    }
+
+    getPremiumPriority(tip) {
+        if (!tip) return 99;
+        const text = `${tip.competition || ""} ${tip.previewTitle || ""}`.toLowerCase();
+        if (/bet of the day/i.test(text) && !/tennis/.test(text)) return 0;
+        if (/tennis bet of the day/i.test(text) || (String(tip.sport || "").toLowerCase() === "tennis" && /bet of the day/i.test(text))) return 1;
+        return 2;
+    }
+
+    getTipIdentityKey(tip) {
+        if (!tip) return null;
+        const home = String(tip.homeTeam || "").trim().toLowerCase();
+        const away = String(tip.awayTeam || "").trim().toLowerCase();
+        const detailsUrl = String(tip.detailsUrl || tip.url || "").trim();
+        if (home && away) return `fixture:${home}::${away}`;
+        if (detailsUrl) return `url:${detailsUrl}`;
+        return null;
     }
 
     isFootballListingTip(tip) {
@@ -102,9 +155,11 @@ class TipsConsumptionClient {
 
         const lines = [];
         const sportEmoji = this.getSportEmoji(tip.sport);
-        const title = String(tip.previewTitle || tip.competition || "").toLowerCase();
-        const isTennisBetOfDay = title.includes("tennis bet of the day") || (tip.isFeatured && String(tip.sport).toLowerCase() === "tennis");
-        const isBetOfDay = title.includes("bet of the day") || tip.isFeatured;
+        const competition = String(tip.competition || "").toLowerCase();
+        const previewTitle = String(tip.previewTitle || "").toLowerCase();
+        const combinedText = `${competition} ${previewTitle}`.trim();
+        const isTennisBetOfDay = /tennis bet of the day/i.test(combinedText) || (tip.isFeatured && String(tip.sport).toLowerCase() === "tennis");
+        const isBetOfDay = /bet of the day/i.test(combinedText) || tip.isFeatured;
 
         // 1. Heading
         if (isTennisBetOfDay) {
@@ -183,8 +238,9 @@ class TipsConsumptionClient {
         const sportEmoji = this.getSportEmoji(tip.sport);
         const kickoff = tip.kickoff ? String(tip.kickoff).trim() : "";
         const kickoffText = kickoff ? (kickoff.toLowerCase().includes("kenyan time") ? kickoff : `${kickoff} Kenyan Time`) : "";
-        const isFeaturedFootball = /bet of the day/i.test(String(tip.previewTitle || tip.competition || "")) || Boolean(tip.isFeatured);
-        const isFeaturedTennis = String(tip.sport || "").toLowerCase() === "tennis" && (isFeaturedFootball || /tennis bet of the day/i.test(String(tip.previewTitle || tip.competition || "")));
+        const combinedText = `${tip.competition || ""} ${tip.previewTitle || ""}`.toLowerCase();
+        const isFeaturedFootball = /bet of the day/i.test(combinedText) || Boolean(tip.isFeatured);
+        const isFeaturedTennis = String(tip.sport || "").toLowerCase() === "tennis" && (/tennis bet of the day/i.test(combinedText) || /bet of the day/i.test(combinedText));
 
         const mainTip = this.getMainTip(tip);
         const mainSelection = mainTip ? (mainTip.selection || mainTip.market || tip.selection || tip.market) : (tip.selection || tip.market || "Selected Tip");
@@ -398,8 +454,9 @@ class TipsConsumptionClient {
 
     getSportEmoji(sport) {
         const value = String(sport || "").toLowerCase();
+        if (value.includes("american football") || value.includes("nfl") || value.includes("american-football")) return "🏈";
         if (value.includes("tennis")) return "🎾";
-        if (value.includes("football") || value.includes("soccer")) return "⚽️";
+        if (value.includes("soccer") || value.includes("football")) return "⚽️";
         if (value.includes("basketball")) return "🏀";
         if (value.includes("baseball")) return "⚾️";
         if (value.includes("rugby")) return "🏉";

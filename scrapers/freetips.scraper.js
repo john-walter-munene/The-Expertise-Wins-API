@@ -28,6 +28,7 @@ class FreeTipsMaxBetScraper {
         // enabled for service and contract runs as well as production. Unit
         // tests that need deterministic fixtures disable it explicitly.
         this.useBrowserFetch = process.env.FREETIPS_DISABLE_BROWSER !== "true";
+        this.verboseLogging = process.env.FREETIPS_VERBOSE === "true";
 
         // Candidate locations for the local HTML file.
         // If a path is provided, it overrides these candidates.
@@ -152,8 +153,26 @@ class FreeTipsMaxBetScraper {
         return snapshotPath && fs.existsSync(snapshotPath) ? fs.readFileSync(snapshotPath, "utf8") : null;
     }
 
+    log(message, ...args) {
+        if (this.verboseLogging) {
+            console.log(message, ...args);
+        }
+    }
+
+    warn(message, ...args) {
+        if (this.verboseLogging) {
+            console.warn(message, ...args);
+        }
+    }
+
+    error(message, ...args) {
+        if (this.verboseLogging) {
+            console.error(message, ...args);
+        }
+    }
+
     async refreshLocalHtml(localFile) {
-        console.log(`Refreshing local freetips.html from ${this.url} ...`);
+        this.log(`Refreshing local freetips.html from ${this.url} ...`);
         let html = null;
         let lastError = null;
 
@@ -161,22 +180,22 @@ class FreeTipsMaxBetScraper {
         if (chromePath) {
             try {
                 html = await this.fetchWithBrowser(chromePath, this.url);
-                console.log("Downloaded latest page via Puppeteer + Chrome.");
+                this.log("Downloaded latest page via Puppeteer + Chrome.");
             } catch (browserError) {
                 lastError = browserError;
-                console.log("Puppeteer fetch failed:", browserError.message);
+                this.warn("Puppeteer fetch failed:", browserError.message);
             }
         } else if (this.useBrowserFetch) {
-            console.log("No browser executable found; falling back to axios.");
+            this.log("No browser executable found; falling back to axios.");
         }
 
         if (!html) {
             try {
                 html = await this.fetchWithAxios();
-                console.log("Downloaded latest page via axios.");
+                this.log("Downloaded latest page via axios.");
             } catch (axiosError) {
                 lastError = axiosError;
-                console.log("Axios fetch failed:", axiosError.message);
+                this.warn("Axios fetch failed:", axiosError.message);
             }
         }
 
@@ -187,12 +206,12 @@ class FreeTipsMaxBetScraper {
             }
             fs.writeFileSync(localFile, html, "utf8");
             this.writePageSnapshot(this.url, html);
-            console.log("Local freetips.html overwritten with latest data.");
+            this.log("Local freetips.html overwritten with latest data.");
             return html;
         }
 
         if (fs.existsSync(localFile)) {
-            console.log("All live fetches failed, using existing local freetips.html...");
+            this.log("All live fetches failed, using existing local freetips.html...");
             return fs.readFileSync(localFile, "utf8");
         }
 
@@ -347,7 +366,7 @@ class FreeTipsMaxBetScraper {
             html = await this.fetchWithAxiosOrBrowser(url);
         } catch (error) {
             if (savedHtml) {
-                console.log(`Live fetch failed for ${url}, reusing saved snapshot as fallback.`);
+                this.log(`Live fetch failed for ${url}, reusing saved snapshot as fallback.`);
                 return savedHtml;
             }
             throw error;
@@ -398,7 +417,7 @@ class FreeTipsMaxBetScraper {
                                     }
                                 }
                             } catch (e) {
-                                console.warn(`Could not expand preview for featured tip (${deepLinkUrl}):`, e.message);
+                                this.warn(`Could not expand preview for featured tip (${deepLinkUrl}):`, e.message);
                             }
                         }
 
@@ -409,7 +428,7 @@ class FreeTipsMaxBetScraper {
                         }
                     }
                 } catch (error) {
-                    console.warn(`Skipping featured page ${featuredUrl}: ${error.message}`);
+                    this.warn(`Skipping featured page ${featuredUrl}: ${error.message}`);
                 }
             }
 
@@ -460,14 +479,14 @@ class FreeTipsMaxBetScraper {
                         processedFixtures.add(fixtureKey);
                     }
                 } catch (error) {
-                    console.warn(`Skipping match preview ${detailsUrl}: ${error.message}`);
+                    this.warn(`Skipping match preview ${detailsUrl}: ${error.message}`);
                 }
             }
 
-            console.log(`Extracted ${results.length} freetips from bet-of-day + match preview listings.`);
+            this.log(`Extracted ${results.length} freetips from bet-of-day + match preview listings.`);
             return results;
         } catch (err) {
-            console.error("SCRAPER ERROR:", err.message);
+            this.error("SCRAPER ERROR:", err.message);
             return [];
         }
     }

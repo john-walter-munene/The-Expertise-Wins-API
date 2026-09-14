@@ -1,18 +1,10 @@
-const FreeTipsService = require("./free.service");
-const PremiumTipsService = require("./premium.service");
-const { TipsConsumptionClient } = require("./tips.client");
+const { TipsService } = require("./services");
 
 (async () => {
-    const freeService = new FreeTipsService();
-    const premiumService = new PremiumTipsService();
-    const freeTips = await freeService.getTips();
-    const premiumTips = await premiumService.getTips();
-
-    const client = new TipsConsumptionClient();
-    const result = client.consume({
-        free: freeTips,
-        premium: premiumTips,
-    });
+    const payload = await TipsService.loadSnapshot("freetips");
+    const freeTips = payload.freeTips || [];
+    const premiumTips = payload.premiumTips || [];
+    const result = payload;
 
     console.log("\n========================================");
     console.log("     SERVICE BOX OUTPUT");

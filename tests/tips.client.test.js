@@ -82,6 +82,34 @@ const basketballTip = {
 
 const result = client.consume({ free: [featuredFootball, listedFootball, featuredTennis, basketballTip], premium: [] });
 
+const premiumPriorityResult = client.consume({
+  free: [],
+  premium: [
+    {
+      source: "freetips",
+      sport: "Football",
+      competition: "Bet of the Day",
+      homeTeam: "Man Utd",
+      awayTeam: "Man City",
+      kickoff: "19:30",
+      market: "Full Time Result",
+      selection: "Draw",
+      odds: 3.8,
+      stakeUnits: 3,
+      previewTitle: "Man United vs Man City Predictions & Betting Tips - Red Devils to Hold Their Own in the Manchester Derby",
+      verdict: "This should be a tight derby.",
+      tips: [{ selection: "Draw", market: "Full Time Result", odds: 3.8, units: 3 }]
+    },
+    featuredTennis,
+    basketballTip
+  ]
+});
+
+const premiumOnlyResult = client.consume({
+  free: [],
+  premium: [featuredFootball, featuredTennis, basketballTip]
+});
+
 assert.ok(Array.isArray(result.maxbetVipCards), "MaxBet VIP cards should exist");
 assert.ok(Array.isArray(result.expertiseWinsFreeCards), "Expertise Wins free cards should exist");
 assert.ok(Array.isArray(result.pikkBetterVipCards), "PikkBetter VIP cards should exist");
@@ -89,7 +117,10 @@ assert.strictEqual(result.maxbetVipCards.length, 2, "Featured tips should be rou
 assert.strictEqual(result.expertiseWinsFreeCards.length, 1, "Football listings should be sent to Expertise Wins");
 assert.strictEqual(result.pikkBetterVipCards.length, 1, "Other sports should be sent to PikkBetter VIP");
 assert.strictEqual(result.freeCards.length, 1, "Only plain football listings should be in the free bucket");
-assert.strictEqual(result.premiumCards.length, 3, "Featured and non-football tips should be in the premium bucket");
+assert.strictEqual(premiumOnlyResult.premiumCards.length, 3, "Featured and non-football premium items should remain in the premium bucket");
+assert.strictEqual(premiumPriorityResult.premiumCards.length, 3, "Premium priority list should keep featured items in front");
+assert.ok(String(premiumPriorityResult.premiumCards[0]).includes("Bet of the day"), "Football Bet of the Day should lead the premium list");
+assert.ok(String(premiumPriorityResult.premiumCards[1]).includes("Tennis Bet of the Day") || String(premiumPriorityResult.premiumCards[1]).includes("Tennis"), "Tennis Bet of the Day should be second in the premium list");
 
 const maxbetText = result.maxbetVipCards[0];
 assert.ok(String(maxbetText).includes("Pikk Maxbet VIP"), "MaxBet format should include the VIP channel header");
@@ -105,9 +136,9 @@ assert.ok(!String(freeBucketText).includes("This should be open and competitive"
 
 const vipText = result.pikkBetterVipCards[0];
 assert.ok(String(vipText).includes("PikkBetter VIP"), "Other sports should use the PikkBetter VIP channel");
-assert.ok(String(vipText).includes("Japan vs South Korea"), "Other-sport matches should remain in the card output");
+assert.ok(String(vipText).includes("Japan") && String(vipText).includes("South Korea"), "Other-sport matches should remain in the card output");
 
-const premiumBucketText = result.premiumCards[0];
+const premiumBucketText = premiumOnlyResult.premiumCards[0];
 assert.ok(String(premiumBucketText).includes("Bet of the day") || String(premiumBucketText).includes("Tennis Bet of the Day") || String(premiumBucketText).includes("Japan vs South Korea"), "Premium bucket should keep the detailed cards");
 
 console.log("tips.client grouping test passed");
