@@ -1,10 +1,11 @@
 {
   "name": "the-expertise-wins-api",
   "version": "1.0.0",
-  "description": "",
+  "description": "A live sports API to get daily predictions from a reliable pool of sources. The API provides free and premium tips for various sports events, including football, basketball, tennis, and more. It is designed to help users make informed decisions when placing bets on sports events. I'm the first consumer of this API",
   "main": "index.js",
   "scripts": {
     "test": "node tests/freetips.test.js && node tests/tips.contract.test.js",
+    "expertise": "npm test && node services/app.js",
     "test:premium-source": "node tests/premium.service.test.js"
   },
   "repository": {

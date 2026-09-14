@@ -18,9 +18,9 @@ const { TipsService } = require("./services");
         console.log("\n----------------------------------------");
     });
 
-    console.log("\n💎 PREMIUM TIPS");
+    console.log("\n💎 VIP TIPS");
     console.log("----------------------------------------");
-    result.premiumCards.forEach((card, index) => {
+    result.pikkBetterVipCards.forEach((card, index) => {
         console.log(`\nCARD ${index + 1}\n`);
         console.log(card);
         console.log("\n----------------------------------------");
@@ -29,16 +29,17 @@ const { TipsService } = require("./services");
     console.log("\n🆓 FREE TIPS");
     console.log("----------------------------------------");
     result.freeCards.forEach((card, index) => {
-        console.log(`\nCARD ${index + 1}\n`);
         console.log(card);
-        console.log("\n----------------------------------------");
+        if (index < result.freeCards.length - 1) {
+            console.log("");
+        }
     });
 
     console.log("\n========================================");
     console.log("             SUMMARY");
     console.log("========================================");
     console.log(`Maxbet tips:      ${result.maxbetVipCards.length}`);
-    console.log(`Premium tips:     ${result.premiumCards.length}`);
+    console.log(`VIP tips:         ${result.pikkBetterVipCards.length}`);
     console.log(`Free tips:        ${result.freeCards.length}`);
     console.log("----------------------------------------");
     console.log(`Total tips:       ${freeTips.length + premiumTips.length}`);

@@ -15,12 +15,7 @@ class TipsConsumptionClient {
         const premiumTips = allTips.filter((tip) => tip && (this.isFeaturedTip(tip) || !this.isFootballListingTip(tip)));
         const grouped = this.consume({ free: freeTips, premium: premiumTips });
 
-        return {
-            allTips,
-            freeTips,
-            premiumTips,
-            ...grouped,
-        };
+        return { allTips, freeTips, premiumTips, ...grouped, };
     }
 
     consume({ free = [], premium = [] }) {
@@ -75,6 +70,14 @@ class TipsConsumptionClient {
     consumeFreeTips(tips) {
         if (!Array.isArray(tips)) return [];
         return tips.filter((tip) => tip && this.isFootballListingTip(tip)).map((tip) => this.formatPlainFreeCard(tip)).filter(Boolean);
+    }
+
+    normalizeLabel(value) {
+        return String(value ?? "")
+            .replace(/\s+\(/g, " (")
+            .replace(/\)\s+/g, ") ")
+            .replace(/\s{2,}/g, " ")
+            .trim();
     }
 
     consumePremiumTips(tips) {
@@ -155,6 +158,7 @@ class TipsConsumptionClient {
 
         const lines = [];
         const sportEmoji = this.getSportEmoji(tip.sport);
+        const normalizedSelection = this.normalizeLabel(tip.selection || tip.market || "Selected Tip");
         const competition = String(tip.competition || "").toLowerCase();
         const previewTitle = String(tip.previewTitle || "").toLowerCase();
         const combinedText = `${competition} ${previewTitle}`.trim();
@@ -205,7 +209,7 @@ class TipsConsumptionClient {
                 odds: tip.odds,
             };
 
-        lines.push(`Bet: ${mainTip.selection}`);
+        lines.push(`Bet: ${this.normalizeLabel(mainTip.selection)}`);
         lines.push(`Stake: ${mainTip.units || 2} Units`);
 
         // 6. Verdict / Reason Narrative
@@ -219,14 +223,15 @@ class TipsConsumptionClient {
         // 7. All Tips lines
         if (tipsList.length > 0) {
             for (const t of tipsList) {
+                const normalizedSelection = this.normalizeLabel(t.selection || t.market || "Tip");
                 const oddsText = Number.isFinite(Number(t.odds)) ? ` @${this.formatOdds(t.odds)}` : "";
                 const units = Number(t.units ?? 2);
-                lines.push(`${t.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
             }
         } else if (mainTip.selection) {
             const oddsText = Number.isFinite(Number(mainTip.odds)) ? ` @${this.formatOdds(mainTip.odds)}` : "";
             const units = Number(mainTip.units ?? 2);
-            lines.push(`${mainTip.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            lines.push(`${this.normalizeLabel(mainTip.selection)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
         }
 
         return lines.join("\n").trim();
@@ -243,7 +248,7 @@ class TipsConsumptionClient {
         const isFeaturedTennis = String(tip.sport || "").toLowerCase() === "tennis" && (/tennis bet of the day/i.test(combinedText) || /bet of the day/i.test(combinedText));
 
         const mainTip = this.getMainTip(tip);
-        const mainSelection = mainTip ? (mainTip.selection || mainTip.market || tip.selection || tip.market) : (tip.selection || tip.market || "Selected Tip");
+        const mainSelection = this.normalizeLabel(mainTip ? (mainTip.selection || mainTip.market || tip.selection || tip.market) : (tip.selection || tip.market || "Selected Tip"));
         const mainStake = this.getMainStake(tip);
         const verdict = this.cleanPreview(tip.verdict || tip.preview);
         const tipsList = Array.isArray(tip.tips) ? tip.tips : [];
@@ -288,9 +293,10 @@ class TipsConsumptionClient {
 
         if (tipsList.length > 0) {
             for (const item of tipsList) {
+                const normalizedSelection = this.normalizeLabel(item.selection || item.market || "Tip");
                 const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
                 const units = Number(item.units ?? item.stakeUnits ?? 1);
-                lines.push(`${item.selection || item.market || "Tip"}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
             }
         } else if (mainSelection) {
             const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
@@ -311,14 +317,15 @@ class TipsConsumptionClient {
         const tipsList = Array.isArray(tip.tips) ? tip.tips : [];
         if (tipsList.length > 0) {
             for (const item of tipsList) {
+                const normalizedSelection = this.normalizeLabel(item.selection || item.market || "Tip");
                 const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
                 const units = Number(item.units ?? item.stakeUnits ?? 1);
-                lines.push(`${item.selection || item.market || "Tip"}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
             }
         } else if (tip.selection) {
             const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
             const units = Number(tip.stakeUnits ?? tip.units ?? 1);
-            lines.push(`${tip.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            lines.push(`${this.normalizeLabel(tip.selection)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
         }
 
         return lines.join("\n").trim();
@@ -359,7 +366,7 @@ class TipsConsumptionClient {
 
         const selection = this.getMainSelection(tip);
         if (selection) {
-            lines.push(`Bet: ${selection}`);
+            lines.push(`Bet: ${this.normalizeLabel(selection)}`);
         }
 
         const stake = this.getMainStake(tip);
@@ -390,7 +397,8 @@ class TipsConsumptionClient {
 
     getMainSelection(tip) {
         const mainTip = this.getMainTip(tip);
-        return mainTip ? mainTip.selection || mainTip.market || tip.selection : tip.selection || tip.market || "Selected Tip";
+        const selection = mainTip ? mainTip.selection || mainTip.market || tip.selection : tip.selection || tip.market || "Selected Tip";
+        return this.normalizeLabel(selection);
     }
 
     getMainStake(tip) {
@@ -402,11 +410,7 @@ class TipsConsumptionClient {
     getMainTip(tip) {
         const tipList = Array.isArray(tip.tips) && tip.tips.length > 0 ? tip.tips : [];
         if (tipList.length === 0) {
-            return {
-                selection: tip.selection || tip.market || "Selected Tip",
-                units: tip.stakeUnits ?? 2,
-                odds: tip.odds,
-            };
+            return { selection: tip.selection || tip.market || "Selected Tip", units: tip.stakeUnits ?? 2, odds: tip.odds, };
         }
 
         return tipList.reduce((prev, curr) => (Number(curr.units ?? curr.stakeUnits ?? 0) > Number(prev.units ?? prev.stakeUnits ?? 0) ? curr : prev), tipList[0]);
@@ -426,14 +430,15 @@ class TipsConsumptionClient {
         const listedTips = Array.isArray(tip.tips) ? tip.tips : [];
         if (listedTips.length > 0) {
             for (const item of listedTips) {
+                const normalizedSelection = this.normalizeLabel(item.selection || item.market || "Tip");
                 const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
                 const units = Number(item.units ?? item.stakeUnits ?? 1);
-                lines.push(`${item.selection || item.market || "Tip"}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
             }
         } else if (tip.selection) {
             const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
             const units = Number(tip.stakeUnits ?? tip.units ?? 1);
-            lines.push(`${tip.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            lines.push(`${this.normalizeLabel(tip.selection)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
         }
 
         return lines.join("\n").trim();
