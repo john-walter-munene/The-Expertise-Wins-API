@@ -123,8 +123,9 @@ assert.ok(String(premiumPriorityResult.premiumCards[0]).includes("Bet of the day
 assert.ok(String(premiumPriorityResult.premiumCards[1]).includes("Tennis Bet of the Day") || String(premiumPriorityResult.premiumCards[1]).includes("Tennis"), "Tennis Bet of the Day should be second in the premium list");
 
 const maxbetText = result.maxbetVipCards[0];
-assert.ok(String(maxbetText).includes("Pikk Maxbet VIP"), "MaxBet format should include the VIP channel header");
-assert.ok(String(maxbetText).includes("Bet of the day"), "Featured card should include the featured format header");
+assert.ok(!String(maxbetText).includes("Pikk Maxbet VIP"), "Featured cards should no longer use the old channel prefix");
+assert.ok(String(maxbetText).includes("Bet of the Day"), "Featured card should lead with the Bet of the Day headline");
+assert.ok(String(maxbetText).includes("League:"), "Featured cards should include the league metadata line");
 
 const freeText = result.expertiseWinsFreeCards[0];
 assert.ok(String(freeText).includes("The Expertise Wins Free Tips"), "Free tips should include the main channel header");
@@ -135,8 +136,62 @@ assert.ok(String(freeBucketText).includes("Estoril vs Porto"), "Free bucket shou
 assert.ok(!String(freeBucketText).includes("This should be open and competitive"), "Free bucket should stay plain and not include premium detail");
 
 const vipText = result.pikkBetterVipCards[0];
-assert.ok(String(vipText).includes("PikkBetter VIP"), "Other sports should use the PikkBetter VIP channel");
-assert.ok(String(vipText).includes("Japan") && String(vipText).includes("South Korea"), "Other-sport matches should remain in the card output");
+assert.ok(!String(vipText).includes("PikkBetter VIP"), "Non-featured cards should not carry the old channel prefix");
+assert.ok(
+  String(vipText).includes("Basketball") ||
+  String(vipText).includes("Cricket") ||
+  String(vipText).includes("Volleyball") ||
+  String(vipText).includes("Esports"),
+  "Other-sport cards should begin with the sport name"
+);
+assert.ok(String(vipText).includes("League:"), "Non-featured cards should include the league metadata line");
+
+const sportEmojiCoverage = new Map([
+  ["American Football", "🏈"],
+  ["Football", "⚽️"],
+  ["Soccer", "⚽️"],
+  ["Basketball", "🏀"],
+  ["Baseball", "⚾️"],
+  ["Tennis", "🎾"],
+  ["Cricket", "🏏"],
+  ["Rugby", "🏉"],
+  ["Rugby Union", "🏉"],
+  ["Rugby League", "🏉"],
+  ["Australian Rules", "🏉"],
+  ["Esports", "🎮"],
+  ["Ice Hockey", "🏒"],
+  ["Volleyball", "🏐"],
+  ["Boxing", "🥊"],
+  ["Golf", "⛳️"],
+  ["Darts", "🎯"],
+  ["Snooker", "🎱"],
+  ["Horse Racing", "🐎"]
+]);
+
+for (const [sport, expected] of sportEmojiCoverage.entries()) {
+  assert.strictEqual(client.getSportEmoji(sport), expected, `Emoji for ${sport} should match the scraper coverage`);
+}
+
+const relativeKickoffTip = {
+  source: "freetips",
+  sport: "Cricket",
+  competition: "2nd T20",
+  homeTeam: "Afghanistan",
+  awayTeam: "India",
+  kickoff: "8h 3m",
+  market: "Ishan Kishan",
+  selection: "Ishan Kishan",
+  odds: 1.83,
+  stakeUnits: 2,
+  previewTitle: "Afghanistan v India 2nd T20",
+  verdict: "Ishan Kishan is the best value in the batting markets.",
+  tips: [{ selection: "Ishan Kishan", market: "Top Batsman", odds: 1.83, units: 2 }]
+};
+
+const relativeKickoffCard = client.formatPikkBetterVipCard(relativeKickoffTip);
+assert.ok(String(relativeKickoffCard).includes("Beginning:"), "Countdown-style kickoff text should still be rendered with a beginning line");
+assert.ok(!String(relativeKickoffCard).includes("8h 3m"), "Countdown-style kickoff should not be displayed as remaining time");
+assert.ok(/Beginning: \d{2}:\d{2} Kenyan Time/.test(String(relativeKickoffCard)), "Relative kickoff should convert into a real Kenyan clock time");
 
 const premiumBucketText = premiumOnlyResult.premiumCards[0];
 assert.ok(String(premiumBucketText).includes("Bet of the day") || String(premiumBucketText).includes("Tennis Bet of the Day") || String(premiumBucketText).includes("Japan vs South Korea"), "Premium bucket should keep the detailed cards");

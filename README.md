@@ -1,405 +1,641 @@
 # The Expertise Wins API
 
-The **The Expertise Wins API** is a backend service for collecting, organizing, curating, and distributing sports betting tips from trusted external sources.
+The **Expertise Wins API** is the backend and data pipeline behind the **The Expertise Wins** betting-tip operation.
 
-The project exists to provide a stable, centralized source of curated tips that can power multiple products and publishing channels without requiring each product to independently collect and process tips.
+Its immediate purpose is practical: collect predictions from a small number of trusted external sources, normalize them into a common format, curate and organize them, and turn them into reliable daily outputs for **The Expertise Wins channels**, initially through Telegram.
 
-The primary consumer is currently **Overlay Picks**, where the API can provide tips for both the public/free-tip experience and the admin/tipster account.
+The project may eventually become a reusable API and data service for other products, tipsters, or clients. But the current priority is deliberately smaller:
 
-Over time, the API may also provide curated tips to **The Expertise Wins** channels and potentially to other tipsters or third-party applications.
+> **Build the machine I need, use it every day, prove the workflow, then expand it.**
 
 ---
 
-## 🎯 Project Goal
+## 🎯 Current Product Direction
 
-The core idea is simple:
+The project started with a broader vision of building centralized tip infrastructure for multiple applications. That vision still exists, but the development strategy has changed.
 
-> **Collect once. Curate once. Distribute everywhere.**
+The first product is **The Expertise Wins itself**.
 
-The most difficult part of running a tipster operation is often not publishing the tips. It is consistently finding useful predictions, collecting them from multiple sources, understanding the characteristics of each provider, and deciding which selections are worth publishing.
-
-The Expertise Wins API is intended to centralize that work.
+The immediate workflow is:
 
 ```text
 External Tip Sources
         │
         ▼
-   Web Scrapers
+     Scrapers
         │
         ▼
-    Raw Tips
+ Normalized Tips
         │
         ▼
-   Normalization
+  Curation / Rules
         │
         ▼
- Curated Tips
+ Consumption / Formatting
         │
         ├───────────────┐
         ▼               ▼
- Overlay Picks    Expertise Wins
-        │
-        ▼
- Future API Clients
+   FREE OUTPUT     PAID OUTPUT
+        │               │
+        └───────┬───────┘
+                ▼
+        Telegram Channels
+                │
+                ▼
+        Results / Records
+                │
+                ▼
+       Improve the System
 ```
 
-This allows the consuming applications to focus on **presentation, users, subscriptions, tipster experiences, and product growth**, rather than rebuilding the tip collection pipeline.
+The goal is not to build a giant prediction database before anyone uses it.
+
+The goal is to create a **repeatable daily operating system for producing and publishing tips**.
 
 ---
 
-# 🏗️ Architecture
+# 🧠 Product Philosophy
 
-The system is designed around several distinct stages.
+The project is built around a simple principle:
 
-### 1. Tip Sources
+> **First make it work. Then make it better.**
 
-External websites and providers are the initial source of predictions.
+The system automates a workflow that has already been personally validated rather than attempting to invent an untested workflow from scratch.
 
-Examples may include football prediction websites, statistical prediction services, and other trusted sources.
-
-Each source should have its own scraper/adapter so that changes to one provider do not affect the rest of the system.
+The project should progressively remove repetitive work:
 
 ```text
-Source A ──┐
-Source B ──┤
-Source C ──┼──> Scraping / Ingestion
-Source D ──┤
-Source E ──┘
+Find sources
+    ↓
+Collect tips
+    ↓
+Normalize tips
+    ↓
+Review / curate
+    ↓
+Assign to free or paid output
+    ↓
+Format
+    ↓
+Publish
+    ↓
+Record results
+    ↓
+Learn
 ```
 
-The initial goal is to support approximately **4–5 reliable sources** rather than attempting to scrape every available prediction website.
+The software is the machine behind this workflow.
+
+---
+
+# 🆓 Free + 💎 Paid Model
+
+The initial distribution model deliberately has both free and paid tiers.
+
+## Free
+
+The free tier exists primarily to:
+
+* introduce people to The Expertise Wins
+* demonstrate consistency
+* provide useful selections
+* build an observable track record
+* create a path toward the paid products
+
+Free output is intentionally more limited than paid output.
+
+The current consumption layer separates free tips into source-based cards such as:
+
+```text
+TipsBet → Free Card 1
+Vitibet → Free Card 2
+```
+
+Free cards are designed to be simple and easy to consume.
+
+## Paid
+
+The paid side is where the more curated service lives.
+
+The current product direction includes:
+
+```text
+The Expertise Wins
+│
+├── Free
+│
+├── Better VIP
+│
+└── MaxBet VIP
+```
+
+Paid output can include:
+
+* more curated selections
+* reasoning/context from the source
+* multiple markets or betting options
+* assigned stake units
+* featured selections
+* premium/MaxBet opportunities
+
+The distinction is not simply "free information vs paid information."
+
+The objective is to make the **paid service materially more useful and differentiated** while keeping the free tier valuable enough to demonstrate the quality and consistency of the operation.
 
 ---
 
 # 🕷️ Scraping Layer
 
-The scraper is responsible for retrieving predictions from external sources.
+Each external provider has its own scraper/adapter.
 
-A scraper should:
+Current sources include:
 
-* retrieve the source data
-* identify relevant matches/events
-* extract predictions
-* extract odds where available
-* preserve the original source URL
-* record when the information was collected
-* retain enough raw information for debugging and auditing
+* **TipsBet**
+* **Vitibet**
+* **FreeTips / MaxBet**
 
-The scraper should **not** make final curation decisions.
+The project intentionally starts with a small number of reliable sources instead of attempting to scrape every available prediction website.
 
-Instead, it produces structured raw data for the ingestion pipeline.
+A scraper is responsible for:
 
-Example:
+* retrieving source data
+* identifying relevant matches/events
+* extracting predictions
+* extracting odds where available
+* preserving source/detail URLs where available
+* recording collection time
+* retaining enough information for debugging
 
-```json
-{
-  "source": "example-provider",
-  "sourceUrl": "https://example.com/predictions",
-  "homeTeam": "Arsenal",
-  "awayTeam": "Chelsea",
-  "prediction": "Over 2.5",
-  "odds": 1.82,
-  "scrapedAt": "2026-08-10T10:00:00Z"
-}
+A scraper should not decide the final business-facing presentation.
+
+Conceptually:
+
+```text
+Source
+  ↓
+Scraper
+  ↓
+Raw / Source-specific Data
+  ↓
+Normalizer
 ```
+
+Different sources can use completely different HTML structures and terminology while still producing the same internal contract.
 
 ---
 
 # 🧹 Normalization
 
-Different providers may describe the same prediction differently.
+Normalization converts source-specific data into a common representation.
 
-For example:
+The current normalized tip contract contains fields such as:
 
-```text
-Over 2.5
-O2.5
-Goals Over 2.5
-Over 2.5 Goals
+```json
+{
+  "source": "freetips",
+  "externalId": null,
+  "sport": "Football",
+  "competition": "Premier League",
+  "country": null,
+  "homeTeam": "Liverpool",
+  "awayTeam": "Nottm Forest",
+  "kickoff": "7h 51m",
+  "market": "Anytime Goalscorer",
+  "selection": "Cody Gakpo",
+  "odds": 3.1,
+  "previewTitle": "Liverpool vs Nottingham Forest Tips & Predictions",
+  "preview": "...",
+  "analytics": null,
+  "confidenceIndex": null,
+  "predictedScore": null,
+  "detailsUrl": "...",
+  "status": "pending",
+  "result": null,
+  "extraTips": [],
+  "scrapedAt": "2026-08-29T03:41:55.293Z"
+}
 ```
 
-These should ultimately map to a common internal representation.
+The exact contract will evolve as more source-specific cases are discovered.
 
-Likewise:
-
-```text
-BTTS
-GG
-Both Teams To Score
-Both Teams Score
-```
-
-should be normalized into a consistent market/selection representation.
-
-Normalization allows the system to compare and organize predictions from different providers without losing the original source information.
-
----
-
-# 🗃️ Data Storage
-
-The database should distinguish between **raw source information** and **normalized application data**.
-
-Raw scraped information should be retained where practical.
-
-This provides an audit trail and makes it possible to investigate problems when:
-
-* a scraper changes
-* a provider changes its format
-* normalization produces an unexpected result
-* a prediction needs to be reviewed
-* historical source performance needs to be analyzed
-
-Conceptually:
+The important boundary is:
 
 ```text
-Raw Tip
-   │
-   ▼
-Normalized Event
-   │
-   ▼
-Normalized Prediction
-   │
-   ▼
-Curated Tip
+Scraper
+   ↓
+Source-specific extraction
+   ↓
+Normalizer
+   ↓
+Common normalized tip
+   ↓
+Consumption / curation
 ```
+
+This allows the rest of the application to work with normalized data instead of knowing how every website works.
 
 ---
 
 # ⭐ Curation
 
-Curation is the most important layer of the application.
+Curation is intentionally separate from scraping.
 
-The system is not intended to blindly publish every prediction collected from external providers.
+The system should not blindly publish everything it finds.
 
-Instead, collected tips can be reviewed and selected based on factors such as:
+Curation can eventually consider:
 
 * source reliability
-* market
 * available odds
+* market type
 * agreement between sources
 * historical performance
 * match context
-* personal curation criteria
-* suitability for a particular publishing channel
+* personal selection criteria
+* intended distribution tier
+* stake policy
 
-The final curated tip becomes the reusable asset that can be distributed to different products.
+At the MVP stage, curation does not need to be a sophisticated AI or ranking system.
 
----
-
-# 🏷️ Tip Channels
-
-The initial system is expected to support several publishing tiers/channels.
-
-Examples include:
-
-| Channel | Purpose                                        |
-| ------- | ---------------------------------------------- |
-| Free    | Public/free tips                               |
-| VIP     | Premium selections                             |
-| MaxBet  | Higher-priority selections                     |
-| Admin   | Tips used by the Overlay admin/tipster account |
-
-Channels should remain flexible rather than tightly coupling the database to a fixed list of products.
-
-A curated tip may eventually be published to one or multiple channels.
+Simple, explicit rules are preferable until the workflow generates enough real data to justify more complex logic.
 
 ---
 
-# 🔌 Overlay Picks Integration
+# 📦 Consumption Layer
 
-One of the primary consumers of this API is the **Overlay Picks** application.
+The project has a dedicated **Tips Consumption Client**.
 
-The API is intended to provide a reliable source of tips that Overlay can consume rather than requiring Overlay to independently scrape and curate external sources.
+Its job is to consume the normalized output from the services and turn it into business-facing text.
 
-Conceptually:
+For example:
 
-```text
-The Expertise Wins API
-          │
-          ├── Free Tips ──────> Overlay
-          │
-          └── Admin Tips ─────> Overlay Tipster/Admin
+```js
+const result = client.consume({
+    free: [...],
+    premium: [...]
+});
 ```
 
-Overlay remains responsible for its own application concerns such as:
+produces:
 
-* users
-* authentication
-* subscriptions
-* tipster accounts
-* UI
-* betting events
-* picks
-* settlement
-* statistics
-* payments
+```text
+{
+    freeCards: [...],
+    premiumCards: [...]
+}
+```
 
-The Expertise Wins API is responsible primarily for the **tip collection, curation, and distribution pipeline**.
+This creates an important separation:
 
-Repository:
+```text
+Scrapers
+    ↓
+Normalizers
+    ↓
+Services
+    ↓
+TipsConsumptionClient
+    ↓
+Telegram-ready messages
+```
 
-[Overlay Picks](https://github.com/john-walter-munene/overlay?utm_source=chatgpt.com)
+The consumption layer knows how the business wants tips presented.
+
+It does not need to know how TipsBet, Vitibet, or FreeTips were scraped.
 
 ---
 
-# 📡 API
+# 📱 Telegram Distribution
 
-The API will initially remain intentionally small.
+Telegram is the first practical publishing channel.
 
-Potential endpoints include:
+The immediate objective is to make daily publishing simple:
+
+```text
+Run collection
+     ↓
+Review output
+     ↓
+Generate free cards
+     ↓
+Generate paid cards
+     ↓
+Post
+```
+
+The Telegram delivery layer should eventually be separate from formatting:
+
+```text
+TipsConsumptionClient
+        ↓
+Telegram-ready messages
+        ↓
+Telegram Client / Bot
+        ↓
+Channel / Group
+```
+
+This means presentation can be tested locally without actually sending messages.
+
+---
+
+# 📊 Results & Historical Records
+
+A major part of the long-term value of the system is not only collecting today's tips, but recording what happened afterward.
+
+The intended loop is:
+
+```text
+Today's Tip
+    ↓
+Published
+    ↓
+Match Happens
+    ↓
+Result Confirmed
+    ↓
+Historical Record
+    ↓
+Source / Market / Tip Analysis
+```
+
+This eventually makes it possible to understand:
+
+* which sources perform well
+* which markets perform well
+* which types of selections perform well
+* how different tiers perform
+* what should be promoted or reduced
+* how transparent historical records can be presented to users
+
+The project should build trust through **consistency and transparent records**, not claims of guaranteed winnings.
+
+---
+
+# 🗂️ Daily Snapshots
+
+The project currently uses local JSON snapshots while the workflow is being developed.
+
+The orchestrator can scrape, normalize, validate, and save daily output.
+
+Current conceptual layout:
+
+```text
+orchestrator/
+├── free-tips/
+└── test-results/
+    └── YYYY-MM-DD/
+        └── freetips.json
+```
+
+Snapshots provide a practical intermediate storage layer while the permanent database architecture is still being developed.
+
+This is intentional.
+
+The MVP does not need to begin with a fully deployed cloud data platform.
+
+---
+
+# ⚙️ Orchestrator
+
+The orchestrator is responsible for running the current collection workflow.
+
+Example:
+
+```bash
+npm run expertise -- --date=2026-09-15
+```
+
+The current workflow can:
+
+1. run the relevant scraper
+2. normalize the results
+3. save a dated JSON snapshot
+4. run validation/tests
+5. clean temporary HTML where appropriate
+
+The system is being developed so that a daily run becomes a repeatable operation rather than a manual scraping exercise.
+
+---
+
+# 🧪 Testing
+
+Testing currently covers individual scraping and normalization components as well as the normalized contract.
+
+The intended testing boundaries are:
+
+```text
+Scraper tests
+    ↓
+Normalizer tests
+    ↓
+Contract tests
+    ↓
+Consumption / formatting tests
+    ↓
+Telegram delivery tests
+```
+
+The consumption layer can be tested directly against saved JSON fixtures without running the scrapers again.
+
+This is important because presentation changes should not require live scraping.
+
+---
+
+# 🏗️ Current Architecture
+
+The current codebase is intentionally simpler than the original long-term architecture.
+
+The practical structure is evolving around:
+
+```text
+the-expertise-wins-api/
+
+├── scrapers/
+│   ├── freetips.scraper.js
+│   ├── tipsbet.scraper.js
+│   └── vitibet.scraper.js
+│
+├── normalizers/
+│   ├── freetips.normalizer.js
+│   ├── tipsbet.normalizer.js
+│   └── vitibet.normalizer.js
+│
+├── services/
+│   ├── free.service.js
+│   ├── premium.service.js
+│   ├── admin.service.js
+│   └── tips.client.js
+│
+├── orchestrator/
+│
+├── tests/
+│
+└── package.json
+```
+
+The structure will continue to change as the actual application boundaries become clearer.
+
+The README intentionally documents the current direction rather than pretending the final architecture is already known.
+
+---
+
+# 🗄️ Database & API
+
+A PostgreSQL + Prisma backend remains part of the longer-term architecture.
+
+However, the database and public API are **not the first milestone**.
+
+The project is currently proving:
+
+```text
+Sources
+  ↓
+Scraping
+  ↓
+Normalization
+  ↓
+Daily snapshots
+  ↓
+Curation
+  ↓
+Consumption
+  ↓
+Telegram
+```
+
+Once that workflow is stable and repeatedly useful, persistent storage and a public API can be introduced where they solve real problems.
+
+Potential future API resources include:
 
 ```http
 GET /api/tips
 GET /api/tips/free
 GET /api/tips/vip
 GET /api/tips/maxbet
-GET /api/tips/admin
-
 GET /api/sources
-GET /api/sources/:id
-
 GET /api/events/:id
-
-POST /api/tips
-PATCH /api/tips/:id
-
 POST /api/scrape
 ```
 
-The exact API surface will evolve as the underlying data model becomes clearer.
-
-The first priority is **reliable data**, not a large number of endpoints.
+These are possibilities, not a commitment to build every endpoint.
 
 ---
 
-# 🔐 Authentication
+# 🔌 Future Consumers
 
-Public consumption and administrative operations will be separated.
+**The Expertise Wins is the primary consumer and product.**
 
-Potential access levels include:
+Future consumers may include:
 
 ```text
-Public
-   │
-   └── Public/free tips
-
-Authenticated client
-   │
-   └── Authorized API access
-
-Admin
-   │
-   ├── Manage sources
-   ├── Run scrapers
-   ├── Curate tips
-   ├── Assign channels
-   └── Publish tips
-```
-
-API keys may eventually be introduced for external consumers and third-party tipsters.
-
----
-
-# 🧰 Technology
-
-The initial technology stack is intended to remain simple and familiar:
-
-* **Node.js**
-* **Express**
-* **PostgreSQL**
-* **Prisma**
-* **JavaScript / TypeScript**
-* **REST API**
-* Web scraping tools appropriate to each source
-
-Additional infrastructure such as Redis, background workers, queues, or scheduled jobs can be introduced when the scraping workload requires them.
-
----
-
-# 📁 Planned Project Structure
-
-A possible structure is:
-
-```text
-the-expertise-wins-api/
-│
-├── prisma/
-│   ├── schema.prisma
-│   └── seed.js
-│
-├── src/
-│   ├── config/
-│   │
-│   ├── controllers/
-│   │
-│   ├── routes/
-│   │
-│   ├── services/
-│   │
-│   ├── scrapers/
-│   │   ├── source-a/
-│   │   ├── source-b/
-│   │   ├── source-c/
-│   │   └── source-d/
-│   │
-│   ├── normalizers/
-│   │
-│   ├── middleware/
-│   │
-│   ├── lib/
-│   │
-│   └── app.js
-│
-├── tests/
-│
-├── .env.example
-├── package.json
-└── README.md
-```
-
-The exact structure may change as the project develops.
-
----
-
-# 🔄 Intended Workflow
-
-A typical daily workflow should eventually look like:
-
-```text
-Scheduled scraper
+The Expertise Wins
        │
-       ▼
-Collect predictions
-       │
-       ▼
-Store raw data
-       │
-       ▼
-Normalize predictions
-       │
-       ▼
-Match events
-       │
-       ▼
-Review / curate
-       │
-       ▼
-Assign channel
-       │
-       ├── Free
-       ├── VIP
-       ├── MaxBet
-       └── Admin
-       │
-       ▼
-Publish
+       ├── Telegram
+       ├── Future web/app experiences
+       └── Paid subscription products
+
+Future integrations
        │
        ├── Overlay Picks
-       ├── The Expertise Wins
-       └── External clients
+       ├── Other tipsters
+       └── External API clients
 ```
 
-The goal is to make the process repeatable and reliable enough that daily tip collection does not become a bottleneck for growing the surrounding products.
+Overlay remains a potential important integration, but it is no longer the reason the project exists.
+
+The infrastructure should eventually be reusable by Overlay and other products without making them the center of the current MVP.
 
 ---
+
+# 🛣️ Long-Term Direction
+
+The long-term ambition is to turn the project into a dependable **tips collection, curation, and distribution platform**.
+
+Possible future capabilities include:
+
+* persistent historical tip storage
+* source performance analytics
+* event matching across sources
+* advanced curation/ranking
+* scheduled scraping
+* background workers
+* queues
+* API authentication
+* API keys
+* client-specific feeds
+* subscriptions/licensing
+* multiple publishing channels
+* external tipster customers
+
+But these belong after the core operating loop is proven.
+
+The progression is:
+
+```text
+WORKING MVP
+     ↓
+DAILY PERSONAL USE
+     ↓
+CONSISTENT PUBLIC OUTPUT
+     ↓
+TRACK RECORD
+     ↓
+PAID CUSTOMERS
+     ↓
+BETTER AUTOMATION
+     ↓
+PERSISTENT DATA / API
+     ↓
+EXTERNAL CLIENTS
+     ↓
+LARGER PRODUCT
+```
+
+The project should grow from actual usage rather than from assumptions about what a future platform might need.
+
+---
+
+# 🎯 Current Mission
+
+The immediate mission is:
+
+> **Build a small, reliable machine that can collect today's tips, turn them into useful free and paid Telegram output, record the results, and make tomorrow's operation easier.**
+
+If the machine works for its creator every day, it has a foundation for becoming a real product.
+
+---
+
+# ⚠️ Disclaimer
+
+This project is a software and data aggregation project.
+
+Sports predictions and betting tips are inherently uncertain and should not be treated as guarantees of financial outcomes.
+
+External sources may contain errors, change their formats, become unavailable, or provide inaccurate information.
+
+The Expertise Wins is responsible for how it curates and presents information, while users remain responsible for how they use betting-related information.
+
+---
+
+# 📄 Status
+
+**MVP development — approaching live operation**
+
+Current foundation:
+
+* working scrapers
+* working normalizers
+* normalized contract tests
+* daily snapshots
+* free and premium services
+* consumption/formatting client
+* free/paid product structure
+
+Immediate work:
+
+* finish formatting tests
+* finish Telegram delivery
+* finish result confirmation
+* begin daily live operation
+
+The next stage should be determined increasingly by **what happens after launch**, not by assumptions made before launch.

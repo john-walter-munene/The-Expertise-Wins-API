@@ -10,7 +10,7 @@ const { TipsService } = require("./services");
     console.log("     SERVICE BOX OUTPUT");
     console.log("========================================\n");
 
-    console.log("💎 MAXBET TIPS");
+    console.log("💰 MAXBET TIPS");
     console.log("----------------------------------------");
     result.maxbetVipCards.forEach((card, index) => {
         console.log(`\nCARD ${index + 1}\n`);
@@ -26,18 +26,15 @@ const { TipsService } = require("./services");
         console.log("\n----------------------------------------");
     });
 
-    console.log("\n🆓 FREE TIPS");
-    console.log("----------------------------------------");
+    console.log("\n🆓 The Expertise Wins Free Tips 📣 \n");
     result.freeCards.forEach((card, index) => {
         console.log(card);
-        if (index < result.freeCards.length - 1) {
-            console.log("");
-        }
+        if (index < result.freeCards.length - 1) console.log("");
     });
 
     console.log("\n========================================");
     console.log("             SUMMARY");
-    console.log("========================================");
+    console.log("==========================================");
     console.log(`Maxbet tips:      ${result.maxbetVipCards.length}`);
     console.log(`VIP tips:         ${result.pikkBetterVipCards.length}`);
     console.log(`Free tips:        ${result.freeCards.length}`);

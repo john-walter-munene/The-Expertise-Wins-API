@@ -8,7 +8,7 @@ const path = require("path");
 const FreeTipsMaxBetScraper = require("../scrapers/freetips.scraper");
 const FreeTipsNormalizer = require("../normalizers/freetips.normalizer");
 const { printNormalizedTips } = require("./tip-table");
-const { saveTestResults } = require("./test-results");
+// Orchestrator is responsible for saving snapshots; tests should not write files.
 
 // ---------------------------------------------------------------------------
 // Deterministic fixtures.
@@ -325,13 +325,14 @@ const isFeaturedUrl = (url) => /\/betting\/(?:bet-of-the-day|tennis-bet-of-the-d
 
     fs.rmSync(listingsFixturePath, { force: true });
 
-    // Run the actual premium source once, show the same compact table as the
-    // other providers, and persist its result for the contract test below.
-    const liveScraper = new FreeTipsMaxBetScraper();
-    const liveTips = new FreeTipsNormalizer().normalize(await liveScraper.scrape());
-    assert.ok(liveTips.length > 0, "FreeTips live scraper should return at least one tip");
-    printNormalizedTips("FreeTips", liveTips);
-    saveTestResults("freetips", liveTips);
+    // The orchestrator is responsible for producing the saved JSON snapshots
+    // consumed by the contract test. Tests should not perform live scraping
+    // or overwrite the authoritative test snapshots.
+
+    // Verify a saved snapshot exists and is loadable by the contract test.
+    const { loadTestResults } = require('../orchestrator/test-results');
+    const saved = loadTestResults('freetips');
+    assert.ok(Array.isArray(saved) && saved.length > 0, 'Saved freetips snapshot must exist and contain tips');
 
     fs.rmSync(testSnapshotDir, { recursive: true, force: true });
 
