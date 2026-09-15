@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "node tests/freetips.test.js && node tests/tips.contract.test.js",
-    "expertise": "npm test && node services/app.js",
-    "test:premium-source": "node tests/premium.service.test.js"
+    "start": "node services/app.js",
+    "test:premium-source": "node tests/premium.service.test.js",
+    "expertise": "node orchestrator/run-freetips.js && node services/app.js"
   },
   "repository": {
     "type": "git",

@@ -10,6 +10,7 @@ const TIP_CONTRACT_FIELDS = [
     "externalId",
     "sport",
     "competition",
+    "league",
     "country",
     "homeTeam",
     "awayTeam",

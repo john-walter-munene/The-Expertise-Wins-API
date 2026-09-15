@@ -520,9 +520,32 @@ class FreeTipsMaxBetScraper {
 
     inferLeagueFromUrl(url, title = "") {
         if (title) {
-            const titleMatch = title.match(/\bin\s+the\s+([A-Z][A-Za-z0-9\s]+?)(?:$|\s*[-–—|])/);
-            if (titleMatch && titleMatch[1].trim().length < 35) {
-                return titleMatch[1].trim();
+            // Pattern 1: "in the [League Name]" at end or before separator
+            const inTheMatch = title.match(/\bin\s+the\s+([A-Z][A-Za-z0-9\s&]+?)(?:$|\s*[-–—|])/);
+            if (inTheMatch && inTheMatch[1].trim().length < 50) {
+                return inTheMatch[1].trim();
+            }
+
+            // Pattern 2: "at the [League Name]" or "at [League Name]"
+            const atTheMatch = title.match(/\bat\s+(?:the\s+)?([A-Z][A-Za-z0-9\s&]+?)(?:\s+Strong\b|\s+this\b|\s+tonight\b|$|\s*[-–—|])/);
+            if (atTheMatch && atTheMatch[1].trim().length < 60) {
+                const candidate = atTheMatch[1].trim();
+                // Must look like a proper noun / tournament (not a verb phrase)
+                if (/^[A-Z]/.test(candidate) && !/^(RLCS|EPL|UEFA|AFC|ACL|WC|EWC|ICC|NBA|NFL|MLB|NHL|EuroVolley|Asian|Europa|Champions|Premier|La Liga|Serie|Bundesliga|Ligue|Super|World|Euro|Copa|FA|DFB|Carabao|Coupe|Scottish|EFL|League|Cup|Championship|Trophy|Masters|Tour|Open|Grand|Slam)/i.test(candidate.split(" ")[0]) || candidate.split(" ").length <= 4) {
+                    return candidate;
+                }
+            }
+
+            // Pattern 3: Extract from dash/em-dash suffix clause — "– [clause] at/in [League]"
+            const dashClause = title.match(/[–—]\s*.{0,60}\bat\s+(?:the\s+)?([A-Z][A-Za-z0-9\s&]+?)(?:\s+Strong\b|\s+this\b|\s+tonight\b|$)/);
+            if (dashClause && dashClause[1].trim().length < 60) {
+                return dashClause[1].trim();
+            }
+
+            // Pattern 4: Plain "at [League]" anywhere in a subtitle after dash
+            const dashAt = title.match(/[–——-]\s*.+?at\s+(?:the\s+)?([A-Z][A-Za-z0-9 &]+\d{4}[A-Za-z0-9 ]*?)(?:\s+Strong\b|$)/);
+            if (dashAt && dashAt[1].trim().length < 60) {
+                return dashAt[1].trim();
             }
         }
         if (!url) return "Betting Tips";
@@ -825,6 +848,7 @@ class FreeTipsMaxBetScraper {
                 previewTitle: title,
                 preview: verdict,
                 verdict,
+                league: this.inferLeagueFromUrl(url, title),
                 tips,
                 market: primaryTip ? primaryTip.market : null,
                 selection: primaryTip ? primaryTip.selection : null,

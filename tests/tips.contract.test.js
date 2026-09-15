@@ -1,5 +1,6 @@
 const { TIP_CONTRACT_FIELDS } = require("../normalizers/contract");
-const { loadTestResults } = require("./test-results");
+const { loadTestResults } = require("../orchestrator/test-results");
+const { printNormalizedTips } = require("./tip-table");
 
 (async () => {
     console.log(" TIPS CONTRACT TEST ");
@@ -20,21 +21,9 @@ const { loadTestResults } = require("./test-results");
         return groups;
     }, {});
 
-    console.log("\nFirst three tips from each scraper:");
+    console.log("\nAll tips from each scraper:");
     for (const [source, tips] of Object.entries(tipsBySource)) {
-        console.log(`\n${source} (${tips.length} total):`);
-        console.table(tips.slice(0, 3).map((tip) => ({
-            source: tip.source,
-            sport: tip.sport,
-            competition: tip.competition,
-            homeTeam: tip.homeTeam,
-            awayTeam: tip.awayTeam,
-            kickoff: tip.kickoff,
-            market: tip.market,
-            selection: tip.selection,
-            odds: tip.odds,
-            extraTips: tip.extraTips?.length || 0,
-        })));
+        printNormalizedTips(source, tips);
     }
     console.log("\nChecking contract...\n");
 
