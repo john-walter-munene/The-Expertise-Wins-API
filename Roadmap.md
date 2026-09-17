@@ -8,7 +8,11 @@ The project is being developed in stages:
 
 The first product is **The Expertise Wins itself**.
 
+> **Current stage:** the CLI is being **tested day to day**. The focus is on operating it consistently and learning what friction actually appears — not on adding infrastructure.
+
 The API, database, external integrations, and larger infrastructure remain part of the long-term vision, but they should emerge from a working operation rather than being built prematurely.
+
+> 📘 For how to run the project as it is today, see [`Run.md`](./Run.md). This roadmap covers direction, not operation.
 
 ---
 
@@ -22,7 +26,8 @@ The API, database, external integrations, and larger infrastructure remain part 
 * [x] Decide that Telegram is the first practical distribution channel
 * [x] Define a normalized tip contract
 * [x] Establish the principle of starting with a small MVP
-* [ ] Establish a consistent daily publishing routine
+* [x] Establish a CLI-first operating loop (produce → paste → settle)
+* [ ] Establish a consistent daily publishing routine (run over several days)
 * [ ] Begin collecting a transparent historical record
 
 ---
@@ -31,20 +36,17 @@ The API, database, external integrations, and larger infrastructure remain part 
 
 **Goal:** Reliably collect tips from a small number of useful sources.
 
-* [x] Build TipsBet scraper
-* [x] Build Vitibet scraper
-* [x] Build FreeTips / MaxBet scraper
+* [x] Build FreeTips / MaxBet scraper (the active source)
 * [x] Extract matches/events
 * [x] Extract selections
 * [x] Extract odds where available
 * [x] Preserve source/detail URLs where available
 * [x] Record scrape timestamps
-* [x] Handle source-specific failures
-* [x] Support sources with different scraping requirements
+* [x] Handle source-specific failures (incl. Cloudflare / browser fetch)
+* [x] Narrow the pipeline to a single reliable source
 * [ ] Add more sources only when the existing workflow justifies them
 * [ ] Improve scraper resilience as real failures are encountered
-
-**Principle:** Do not add sources simply to increase the number of sources. Add sources when they improve the actual product.
+**Principle:** Do not add sources simply to increase the number of sources. Add sources when they improve the actual product. The pipeline was deliberately narrowed to one source while the daily workflow is proven.
 
 ---
 
@@ -52,14 +54,14 @@ The API, database, external integrations, and larger infrastructure remain part 
 
 **Goal:** Give every source a predictable internal representation.
 
-* [x] Create source-specific normalizers
+* [x] Create the source normalizer (`freetips.normalizer.js`)
 * [x] Normalize sport
 * [x] Normalize competition
 * [x] Normalize teams
 * [x] Normalize market/selection fields
 * [x] Normalize odds where available
 * [x] Preserve source-specific details where useful
-* [x] Define normalized tip contract
+* [x] Define the normalized tip contract (26 fields)
 * [x] Add contract tests
 * [ ] Improve edge cases discovered through real daily runs
 * [ ] Separate source extraction problems from presentation problems
@@ -73,59 +75,63 @@ The API, database, external integrations, and larger infrastructure remain part 
 
 * [x] Build orchestrator
 * [x] Run scraper + normalization as a repeatable workflow
-* [x] Save dated JSON snapshots
+* [x] Save JSON snapshots
 * [x] Validate generated snapshots
 * [x] Clean temporary HTML snapshots after validation
 * [x] Allow a specific date to be supplied
-* [ ] Add a convenient previous-day loader
-* [ ] Add `--previous` support
+* [x] Export a dated dump into `settlement/previous-day-results/` on each save
+* [x] Add a convenient previous-day loader (`resolveJsonPath` falls back to the newest dump)
 * [ ] Compare today's and yesterday's snapshots
 * [ ] Make daily execution simple enough to become routine
 * [ ] Eventually schedule the workflow automatically
-
 Current snapshot concept:
 
 ```text
 orchestrator/
 └── test-results/
-    └── YYYY-MM-DD/
-        └── freetips.json
+    └── freetips.json                    # today's working snapshot
+settlement/
+└── previous-day-results/
+    └── freetips-<DDth Mon YYYY>.json    # dated dump the settlement layer reads/writes
 ```
 
 Snapshots are an intentional MVP storage mechanism. A permanent database does not need to be introduced until it solves a real operational problem.
 
 ---
 
-# Phase 4 — Consumption & Telegram Output
-
+# Phase 4 — Consumption & Publishing Output
 **Goal:** Turn normalized data into the exact output required by The Expertise Wins.
+
+> **Current reality:** output is printed by a **terminal CLI** and the operator **pastes it into the channels manually**. There is no Telegram client yet — and none is needed to publish today.
 
 * [x] Create consumption boundary
 * [x] Consume `{ free, premium }` service output
-* [x] Separate TipsBet free output
-* [x] Separate Vitibet free output
-* [x] Build premium/MaxBet formatting
+* [x] Build Maxbet VIP formatting
+* [x] Build VIP (PikkBetter) formatting
+* [x] Build Free Tips formatting
 * [x] Support featured "Bet of the Day" output
 * [x] Support featured "Tennis Bet of the Day" output
 * [x] Include premium reasoning/context where available
 * [x] Format odds
-* [x] Apply configurable stake policies
-* [ ] Finish formatting tests against saved JSON
-* [ ] Verify every output against the desired Telegram presentation
-* [ ] Add message-length/chunking handling where necessary
-* [ ] Build Telegram delivery client
-* [ ] Test sending without coupling delivery to formatting
-
-Target boundary:
+* [x] Apply stake policies
+* [x] Add consumption/formatting tests against saved JSON
+* [x] Print channel-ready output via a CLI (`services/app.js`)
+* [ ] Verify the printed output against the desired channel presentation over real daily runs
+* [ ] Add message-length/chunking handling if the pasted output ever exceeds limits
+* [ ] (Later) Build an automated Telegram delivery client
+Target boundary — note the same formatted cards serve both today's manual paste and a future automated publisher:
 
 ```text
 Normalized Services
         ↓
 TipsConsumptionClient
         ↓
-Telegram-ready messages
+Channel-ready messages
         ↓
-Telegram Client
+┌─────────────────────────┐
+│ today: operator pastes  │
+│ later: Telegram client  │
+└─────────────────────────┘
         ↓
 The Expertise Wins
 ```
@@ -166,9 +172,53 @@ The Expertise Wins
 
 ---
 
-# Phase 6 — Results & Performance
+# Phase 5.5 — Manual Settlement (current)
 
+**Goal:** Close the prediction → outcome loop using **real user input**, without waiting for automated result scraping.
+
+This phase exists because results are **not** scraped automatically. The operator pastes the day's results and the settlement layer marks them.
+
+How it works today:
+
+```text
+Dated dump (settlement/previous-day-results/freetips-<date>.json)
+        ↓
+Operator pastes results into settlement/settlement-template.txt
+        ↓
+Run the settlement command
+        ↓
+Match fixture + selection against the pasted text
+        ↓
+Mark each tip win/lose + settled (incl. nested + extraTips)
+        ↓
+Write the annotated dump back to disk
+        ↓
+Print a settled report
+```
+
+> 📘 Commands: [`Run.md`](./Run.md).
+
+* [x] Build the settlement layer (`settlement/settlement.js`)
+* [x] Read the dated dump from `settlement/previous-day-results/`
+* [x] Parse pasted results text into per-fixture outcomes
+* [x] Match tips by fixture and selection (incl. nested `tips` + `extraTips`)
+* [x] Default absent **free** tips to a loss (untouched = lost)
+* [x] Require explicit markers for featured / VIP tips
+* [x] Write settled outcomes back to the JSON dump
+* [x] Print a settled report via a CLI (`settlement/app.js`)
+* [x] Distinguish paid wins in the output (`✅🔥`) from loses (`❎`)
+* [x] Add settlement tests (matching, write-back, fire-emoji rules)
+* [ ] Run settlement daily on real results and confirm the rules hold
+* [ ] Note any fixtures/edge cases the matcher gets wrong, then refine
+* [ ] (Later) Automate result confirmation where a reliable source exists
+**Principle:** Keep settlement **manual and explicit** for now. A human confirming results is more trustworthy than a fragile scraper, and it keeps the important decisions visible while the workflow is proven.
+
+---
+
+# Phase 6 — Results & Performance
 **Goal:** Close the loop between prediction and outcome.
+
+> **Current approach:** results enter the system via **manual settlement** (see Phase 5.5). Automated result confirmation is deferred.
 
 ```text
 TIP
@@ -184,12 +234,12 @@ RECORDED
 ANALYZED
 ```
 
-* [ ] Confirm final scores/results
-* [ ] Update tip status
-* [ ] Record win/loss/push where applicable
-* [ ] Store result timestamps
-* [ ] Record stake/result information
-* [ ] Produce daily result summaries
+* [x] Confirm results manually (operator pastes them)
+* [x] Update tip status (`pending` → `settled`)
+* [x] Record win/loss on the tip and its nested/extra tips
+* [ ] Store explicit result timestamps
+* [x] Record stake/result information on the tip
+* [x] Produce a settled report per run
 * [ ] Produce weekly/monthly summaries
 * [ ] Track source performance
 * [ ] Track market performance
@@ -197,8 +247,9 @@ ANALYZED
 * [ ] Identify consistently useful sources
 * [ ] Identify weak or unreliable sources
 * [ ] Use actual records to improve curation
-
 This phase is strategically important because historical results turn the project from a tip collection script into an increasingly informed operating system.
+
+> **Note:** the dated dumps under `settlement/previous-day-results/` are the current historical record. They are intentionally simple (annotated JSON), because a proper results store belongs in the database phase — and only once the daily workflow has proven what the record actually needs to hold.
 
 ---
 
@@ -415,25 +466,26 @@ The system should improve through actual usage.
 
 ---
 
-# 🧭 Current Priority — September 2026
+# 🧭 Current Priority
 
-The current priority is **not** PostgreSQL, API keys, Redis, queues, or a large public API.
+The current priority is **not** PostgreSQL, Prisma, API keys, Redis, queues, a large public API, **a database, a frontend UI, or an automated Telegram bot**.
 
-The immediate priority is:
+The immediate priority is to **operate the CLI daily and let reality guide the next step**:
 
 ```text
-1. Finish consumption formatting
-2. Test Telegram-ready output
-3. Finish Telegram delivery
-4. Confirm results/scores
-5. Start daily operation
-6. Publish free output consistently
-7. Publish paid output consistently
-8. Record the track record
-9. Observe what actually needs improvement
+1. Produce today's cards
+2. Paste them into the channels
+3. Settle the results (manual input)
+4. Record the track record (dated dumps)
+5. Watch for friction across several days
+6. THEN decide: database? UI? automation?
 ```
 
-The near-term target is a small but functioning MVP that can be operated every day.
+The near-term target is a small but functioning CLI that can be operated every day, and a few days of real use to learn what genuinely needs building next.
+
+> 📘 **Commands and the daily recipe: [`Run.md`](./Run.md).**
+
+> **Deliberately deferred:** a database and a frontend UI. They are not next. They become relevant only once the daily CLI workflow has been proven and its real storage/presentation needs are understood.
 
 ---
 
@@ -522,10 +574,9 @@ Scraper → extracts
 Normalizer → standardizes
 Service → combines/provides
 Curation → decides
-Consumption → formats
-Telegram client → delivers
-Results → records
-API → exposes
+Consumption → formats channel-ready cards
+Settlement → records outcomes (manual for now)
+API → exposes (later)
 ```
 
 ### 4. Let real data drive architecture.
@@ -551,24 +602,29 @@ The first person who should benefit from the automation is the person operating 
 ---
 
 # 📄 Status
-
-**MVP — final delivery pipeline / pre-launch**
+**MVP — CLI operating loop in daily use (pre-database, pre-UI)**
 
 Current foundation:
 
-* working scrapers
-* working normalizers
-* normalized contract tests
-* daily snapshots
+* working scraper + normalizer (single active source)
+* normalized 26-field contract + contract tests
+* daily snapshot + dated previous-day dumps
 * free and premium services
-* consumption/formatting client
-* free/paid product structure
-
+* consumption/formatting client (channel-ready cards)
+* free/paid product structure — Maxbet VIP / VIP / Free Tips
+* **settlement layer** (manual input → outcomes → settled report) + its tests
+* CLI loggers for both producing and settling (`services/app.js`, `settlement/app.js`)
 Immediate work:
 
-* finish formatting tests
-* finish Telegram delivery
-* finish result confirmation
-* begin daily live operation
+* **run the CLI + manual-settlement workflow daily for a few days**
+* confirm printed output pastes cleanly into the channels
+* confirm settlement rules hold against real results
+* record friction points to inform what to build next
+Explicitly **not** next (deferred until the daily workflow is proven):
 
-The next stage should be determined increasingly by **what happens after launch**, not by assumptions made before launch.
+* a database (PostgreSQL + Prisma)
+* a frontend UI
+* an automated Telegram publisher
+* automated result scraping
+
+The next stage should be determined by **what daily use actually reveals**, not by assumptions made before launch.

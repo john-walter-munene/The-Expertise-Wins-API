@@ -27,14 +27,14 @@ class FreeTipsNormalizer {
                 previewTitle: tip.previewTitle || null,
                 preview: verdict,
                 verdict,
-                tips: Array.isArray(tip.tips) ? tip.tips : [],
+                tips: Array.isArray(tip.tips) ? tip.tips.map(t => ({ ...t, outcome: t.outcome || null })) : [],
                 analytics: tip.analytics || null,
                 confidenceIndex: null,
                 predictedScore: null,
                 detailsUrl: tip.detailsUrl || null,
                 status: tip.result === "?" || !tip.result ? "pending" : "settled",
                 result: tip.result || null,
-                extraTips: Array.isArray(tip.extraTips) ? tip.extraTips : [],
+                extraTips: Array.isArray(tip.extraTips) ? tip.extraTips.map(et => ({ ...et, outcome: et.outcome || null })) : [],
             });
         });
     }

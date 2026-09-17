@@ -10,7 +10,10 @@ class TipsConsumptionClient {
     async loadFromJson(source = "freetips") {
         const { loadTestResults } = require("../orchestrator/test-results");
         const allTips = loadTestResults(source);
+        return this.loadFromData(allTips);
+    }
 
+    async loadFromData(allTips) {
         const freeTips = allTips.filter((tip) => this.isFootballListingTip(tip));
         const premiumTips = allTips.filter((tip) => tip && (this.isFeaturedTip(tip) || !this.isFootballListingTip(tip)));
         const grouped = this.consume({ free: freeTips, premium: premiumTips });
@@ -282,12 +285,12 @@ class TipsConsumptionClient {
                 const normalizedSelection = this.normalizeLabel(t.selection || t.market || "Tip");
                 const oddsText = Number.isFinite(Number(t.odds)) ? ` @${this.formatOdds(t.odds)}` : "";
                 const units = Number(t.units ?? 2);
-                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(t.outcome)}`);
             }
         } else if (mainTip.selection) {
             const oddsText = Number.isFinite(Number(mainTip.odds)) ? ` @${this.formatOdds(mainTip.odds)}` : "";
             const units = Number(mainTip.units ?? 2);
-            lines.push(`${this.normalizeLabel(mainTip.selection)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            lines.push(`${this.normalizeLabel(mainTip.selection)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(mainTip.outcome || tip.outcome)}`);
         }
 
         return lines.join("\n").trim();
@@ -340,12 +343,12 @@ class TipsConsumptionClient {
                 const normalizedSelection = this.formatSelectionWithMarket(item.selection, item.market);
                 const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
                 const units = Number(item.units ?? item.stakeUnits ?? 1);
-                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(item.outcome)}`);
             }
         } else if (mainSelection) {
             const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
             const units = Number(tip.stakeUnits ?? tip.units ?? 1);
-            lines.push(`${mainSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            lines.push(`${mainSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(tip.outcome)}`);
         }
 
         return lines.join("\n").trim();
@@ -364,12 +367,12 @@ class TipsConsumptionClient {
                 const normalizedSelection = this.normalizeLabel(item.selection || item.market || "Tip");
                 const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
                 const units = Number(item.units ?? item.stakeUnits ?? 1);
-                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(item.outcome)}`);
             }
         } else if (tip.selection) {
             const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
             const units = Number(tip.stakeUnits ?? tip.units ?? 1);
-            lines.push(`${this.normalizeLabel(tip.selection)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            lines.push(`${this.normalizeLabel(tip.selection)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(tip.outcome)}`);
         }
 
         return lines.join("\n").trim();
@@ -428,12 +431,12 @@ class TipsConsumptionClient {
             for (const item of listedTips) {
                 const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
                 const units = Number(item.units ?? item.stakeUnits ?? 1);
-                lines.push(`${this.formatSelectionWithMarket(item.selection, item.market)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${this.formatSelectionWithMarket(item.selection, item.market)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(item.outcome)}`);
             }
         } else if (tip.selection) {
             const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
             const units = Number(tip.stakeUnits ?? tip.units ?? 1);
-            lines.push(`${this.formatSelectionWithMarket(tip.selection, tip.market)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            lines.push(`${this.formatSelectionWithMarket(tip.selection, tip.market)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(tip.outcome)}`);
         }
 
         return lines.join("\n").trim();
@@ -442,7 +445,7 @@ class TipsConsumptionClient {
     formatSelectionWithMarket(selection, market) {
         const normalizedSelection = this.normalizeLabel(selection || "");
         const normalizedMarket = this.normalizeLabel(market || "");
-        
+
         if (!normalizedSelection) return normalizedMarket || "Tip";
         if (!normalizedMarket) return normalizedSelection;
         if (normalizedSelection.toLowerCase() === normalizedMarket.toLowerCase()) return normalizedSelection;
@@ -490,12 +493,12 @@ class TipsConsumptionClient {
                 const normalizedSelection = this.normalizeLabel(item.selection || item.market || "Tip");
                 const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
                 const units = Number(item.units ?? item.stakeUnits ?? 1);
-                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(item.outcome)}`);
             }
         } else if (tip.selection) {
             const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
             const units = Number(tip.stakeUnits ?? tip.units ?? 1);
-            lines.push(`${this.normalizeLabel(tip.selection)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            lines.push(`${this.normalizeLabel(tip.selection)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}${this.formatOutcome(tip.outcome)}`);
         }
 
         return lines.join("\n").trim();
@@ -719,6 +722,12 @@ class TipsConsumptionClient {
         if (value.includes("esport")) return "🎮";
         if (value.includes("ice hockey") || value.includes("hockey")) return "🏒";
         return "💰";
+    }
+
+    formatOutcome(outcome) {
+        if (outcome === "win") return " ✅✅";
+        if (outcome === "lose") return " ❎❎";
+        return "";
     }
 
     cleanPreview(preview) {

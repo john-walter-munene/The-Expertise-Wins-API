@@ -3,10 +3,22 @@ const path = require("path");
 
 const resultsRoot = path.resolve(__dirname, "test-results");
 const htmlSnapshotDir = path.resolve(__dirname, "free-tips");
+// The settlement layer owns its own dump directory so the previous day's
+// results live next to the settlement tooling that reads them.
+const previousDayResultsRoot = path.resolve(__dirname, "..", "settlement", "previous-day-results");
 
-function resultPath(source, dateIso) {
-    const dir = dateIso ? path.join(resultsRoot, dateIso) : resultsRoot;
-    return path.join(dir, `${source}.json`);
+function getFormattedDate(dateIso) {
+    const d = dateIso ? new Date(dateIso) : new Date();
+    const day = d.getDate();
+    const suffix = ["th", "st", "nd", "rd"][day % 10 > 3 ? 0 : (day % 100 - day % 10 !== 10) * day % 10];
+    const month = d.toLocaleString('en-GB', { month: 'short' });
+    const year = d.getFullYear();
+    return `${day}${suffix} ${month} ${year}`;
+}
+
+function resultPath(source) {
+    // Save directly under test-results, not in a date folder
+    return path.join(resultsRoot, `${source}.json`);
 }
 
 function clearDownloadedHtmlFiles() {
@@ -38,38 +50,59 @@ function clearDownloadedHtmlFiles() {
 }
 
 /**
- * Save test results into `orchestrator/test-results/<YYYY-MM-DD>/<source>.json` when
- * `dateIso` is provided, otherwise into `orchestrator/test-results/<source>.json`.
+ * Save test results directly into `orchestrator/test-results/<source>.json`.
+ * It updates existing tips for the same day without overwriting them.
+ * It also exports a dump into `previous-day-results/<source>-<formatted-date>.json`.
  */
 function saveTestResults(source, tips, opts = {}) {
-    const dateIso = opts.date;
-    const targetDir = dateIso ? path.join(resultsRoot, dateIso) : resultsRoot;
-    fs.mkdirSync(targetDir, { recursive: true });
-    fs.writeFileSync(resultPath(source, dateIso), JSON.stringify(tips, null, 2), "utf8");
-    // Keep the HTML snapshot dir for debugging by default; caller may clean it.
+    const dateIso = opts.date; // e.g. YYYY-MM-DD
+    fs.mkdirSync(resultsRoot, { recursive: true });
+    const targetFile = resultPath(source);
+    
+    let existingTips = [];
+    if (fs.existsSync(targetFile)) {
+        try {
+            existingTips = JSON.parse(fs.readFileSync(targetFile, "utf8"));
+            if (!Array.isArray(existingTips)) existingTips = [];
+        } catch (err) {
+            existingTips = [];
+        }
+    }
+
+    // Filter existing tips to only keep those from the current day.
+    // If the file contains yesterday's tips, we drop them here because they're
+    // already safely saved in the previous day dump.
+    if (dateIso) {
+        existingTips = existingTips.filter(t => {
+            if (!t.scrapedAt) return false;
+            return t.scrapedAt.startsWith(dateIso);
+        });
+    }
+
+    // Merge tips based on unique identifiers to update (not overwrite)
+    const map = new Map();
+    const getKey = (t) => `${t.homeTeam}|${t.awayTeam}|${t.selection}|${t.market}`;
+    
+    existingTips.forEach(t => map.set(getKey(t), t));
+    tips.forEach(t => map.set(getKey(t), t));
+    
+    const mergedTips = Array.from(map.values());
+
+    // Save current day's tips directly to test-results/freetips.json
+    fs.writeFileSync(targetFile, JSON.stringify(mergedTips, null, 2), "utf8");
+
+    // Export the dump to the previous day results dir (settlement layer)
+    fs.mkdirSync(previousDayResultsRoot, { recursive: true });
+    const formattedDate = getFormattedDate(dateIso);
+    const exportFile = path.join(previousDayResultsRoot, `${source}-${formattedDate}.json`);
+    fs.writeFileSync(exportFile, JSON.stringify(mergedTips, null, 2), "utf8");
 }
 
 function loadTestResults(source, opts = {}) {
-    const dateIso = opts.date;
-    const filePath = resultPath(source, dateIso);
+    // Load from test-results/<source>.json directly
+    const filePath = resultPath(source);
+    
     if (!fs.existsSync(filePath)) {
-        // If a specific date wasn't requested, try to find the most recent
-        // dated snapshot under `test-results/YYYY-MM-DD/` for convenience.
-        if (!dateIso && fs.existsSync(resultsRoot)) {
-            try {
-                const entries = fs.readdirSync(resultsRoot, { withFileTypes: true });
-                const dateDirs = entries.filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(e.name)).map((d) => d.name);
-                if (dateDirs.length > 0) {
-                    // choose the latest date string
-                    dateDirs.sort();
-                    const latest = dateDirs[dateDirs.length - 1];
-                    const candidate = resultPath(source, latest);
-                    if (fs.existsSync(candidate)) return JSON.parse(fs.readFileSync(candidate, "utf8"));
-                }
-            } catch {
-                // ignore and throw below
-            }
-        }
         throw new Error(`Missing ${source} test results at ${filePath}. Run the orchestrator before running contract tests.`);
     }
 
@@ -78,4 +111,4 @@ function loadTestResults(source, opts = {}) {
     return tips;
 }
 
-module.exports = { saveTestResults, loadTestResults };
+module.exports = { saveTestResults, loadTestResults, clearDownloadedHtmlFiles };
