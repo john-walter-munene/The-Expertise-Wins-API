@@ -18,6 +18,7 @@ const { printNormalizedTips } = require("./tip-table");
     const tipsBySource = allTips.reduce((groups, tip) => {
         const source = tip.source || "unknown";
         (groups[source] ||= []).push(tip);
+
         return groups;
     }, {});
 
@@ -32,6 +33,7 @@ const { printNormalizedTips } = require("./tip-table");
 
     for (const tip of allTips) {
         sources.add(tip.source || "unknown");
+        
         const missing = [];
         const extra = [];
 
@@ -53,10 +55,13 @@ const { printNormalizedTips } = require("./tip-table");
 
         if (missing.length > 0 || extra.length > 0) {
             invalidCount++;
+
             console.log("⚠️ Invalid tip found");
             console.log("Source:", tip.source || "unknown");
+
             if (missing.length) console.log("Missing:", missing);
             if (extra.length) console.log("Extra fields:", extra);
+
             console.dir(tip, { depth: null });
             console.log("--------------------------------");
         }

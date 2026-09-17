@@ -38,8 +38,8 @@ async function run() {
             path.join(__dirname, "free-tips.html"),
             path.resolve(process.cwd(), "freetips.html"),
         ];
-        const raw = await scraper.scrape();
 
+        const raw = await scraper.scrape();
         console.log(`Scraped ${Array.isArray(raw) ? raw.length : 0} raw tips.`);
 
         const normalizer = new FreeTipsNormalizer();
@@ -74,18 +74,29 @@ async function run() {
             console.warn("Snapshot cleanup failed:", cleanupErr && cleanupErr.message ? cleanupErr.message : cleanupErr);
         }
 
-        // Remove obsolete test fixtures in the repo `tests/` that are now
-        // managed by the orchestrator. This keeps the repository tidy and
-        // avoids duplicated snapshots.
+        // Optionally remove obsolete test fixtures under `tests/` that are
+        // now managed by the orchestrator. This is opt-in to avoid surprise
+        // deletions; pass `--cleanup-old-tests` or set
+        // `CLEANUP_OLD_TESTS=true` to enable.
         try {
+            const argv = process.argv.slice(2);
+            const cleanupOld = argv.includes("--cleanup-old-tests") || process.env.CLEANUP_OLD_TESTS === "true";
             const repoTestsDir = path.resolve(__dirname, "..", "tests");
             const repoTestsSnapshots = path.join(repoTestsDir, "test-results");
             const repoFreetipsSnapshots = path.join(repoTestsDir, "freetips");
-            fs.rmSync(repoTestsSnapshots, { recursive: true, force: true });
-            fs.rmSync(repoFreetipsSnapshots, { recursive: true, force: true });
-            console.log("Removed obsolete snapshots under tests/");
+
+            if (cleanupOld) {
+                fs.rmSync(repoTestsSnapshots, { recursive: true, force: true });
+                fs.rmSync(repoFreetipsSnapshots, { recursive: true, force: true });
+                console.log("Removed obsolete snapshots under tests/");
+            } else {
+                // Informative message when snapshots still exist.
+                if (fs.existsSync(repoTestsSnapshots) || fs.existsSync(repoFreetipsSnapshots)) {
+                    console.log("Obsolete snapshots remain under tests/. Run the orchestrator with --cleanup-old-tests to remove them.");
+                }
+            }
         } catch (rmErr) {
-            console.warn("Could not fully remove old test snapshots:", rmErr && rmErr.message ? rmErr.message : rmErr);
+            console.warn("Could not inspect or remove old test snapshots:", rmErr && rmErr.message ? rmErr.message : rmErr);
         }
     } catch (err) {
         console.error("Orchestrator error:", err && err.message ? err.message : err);

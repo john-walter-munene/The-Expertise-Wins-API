@@ -35,6 +35,7 @@ function printNormalizedTips(source, tips) {
 
     console.log(`\n${source} normalized tips (${tips.length}):`);
     console.table(tips.map((tip, index) => {
+        
         const row = { index };
 
         for (const field of DISPLAY_FIELDS.slice(1)) {
