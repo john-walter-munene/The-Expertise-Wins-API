@@ -29,6 +29,7 @@ const TIP_CONTRACT_FIELDS = [
     "detailsUrl",
     "status",
     "result",
+    "outcome",
     "extraTips",
     "scrapedAt",
 ];

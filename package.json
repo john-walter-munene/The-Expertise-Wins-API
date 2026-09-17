@@ -4,10 +4,12 @@
   "description": "A live sports API to get daily predictions from a reliable pool of sources. The API provides free and premium tips for various sports events, including football, basketball, tennis, and more. It is designed to help users make informed decisions when placing bets on sports events. I'm the first consumer of this API",
   "main": "index.js",
   "scripts": {
-    "test": "node tests/freetips.test.js && node tests/tips.contract.test.js",
+    "test": "node tests/freetips.test.js && node tests/tips.contract.test.js && node tests/settlement.test.js",
     "start": "node services/app.js",
     "test:premium-source": "node tests/premium.service.test.js",
-    "expertise": "node orchestrator/run-freetips.js && node services/app.js"
+    "test:settlement": "node tests/settlement.test.js",
+    "expertise": "node orchestrator/run-freetips.js && node services/app.js",
+    "settlement": "node settlement/app.js"
   },
   "repository": {
     "type": "git",
