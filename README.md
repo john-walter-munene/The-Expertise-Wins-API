@@ -1,5 +1,9 @@
 # The Expertise Wins API
 
+> 📣 **Live channel (proof this is running in production):** [The Expertise Wins — Telegram](https://t.me/+D_jIXFB807E0NmRk)
+>
+> The tips this project produces and settles are published here every day.
+
 The **Expertise Wins API** is the backend and data pipeline behind the **The Expertise Wins** betting-tip operation.
 
 Its immediate purpose is practical: collect predictions from a small number of trusted external sources, normalize them into a common format, curate and organize them, and turn them into reliable daily outputs for **The Expertise Wins channels**, initially through Telegram.
