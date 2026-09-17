@@ -100,11 +100,17 @@ class TipsConsumptionClient {
     }
 
     normalizeLabel(value) {
-        return String(value ?? "")
+        let text = String(value ?? "")
             .replace(/\s+\(/g, " (")
             .replace(/\)\s+/g, ") ")
             .replace(/\s{2,}/g, " ")
             .trim();
+
+        text = text.replace(/\s*\(\s*\d+\/\d+\s*\)\s*$/i, "");
+        text = text.replace(/\s*\(\s*\d+\.\d+\s*\)\s*$/i, "");
+        text = text.replace(/\s*\(\s*\d+\s*\/\s*\d+\s*\)\s*$/i, "");
+
+        return text.replace(/\s{2,}/g, " ").trim();
     }
 
     formatKickoffText(kickoff) {
@@ -128,24 +134,25 @@ class TipsConsumptionClient {
         const hours = Number(durationMatch[1] || 0);
         const minutes = Number(durationMatch[2] || 0);
         const totalMinutes = hours * 60 + minutes;
-        if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) {
-            return `${compact} Kenyan Time`;
-        }
+        if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) return `${compact} Kenyan Time`;
+        
 
         const kenyaNow = new Date();
         const parts = new Intl.DateTimeFormat("en-GB", {
             timeZone: "Africa/Nairobi",
             hour: "2-digit",
             minute: "2-digit",
+            second: "2-digit",
             hour12: false,
         }).formatToParts(kenyaNow);
 
         const hour = Number((parts.find((part) => part.type === "hour") || {}).value || 0);
         const minute = Number((parts.find((part) => part.type === "minute") || {}).value || 0);
-        const totalNowMinutes = hour * 60 + minute;
-        const futureTotal = totalNowMinutes + totalMinutes;
-        const computedHour = (Math.floor(futureTotal / 60) % 24 + 24) % 24;
-        const computedMinute = futureTotal % 60;
+        const second = Number((parts.find((part) => part.type === "second") || {}).value || 0);
+        const totalNowMinutes = hour * 60 + minute + (second / 60);
+        const roundedTotalMinutes = Math.round((totalNowMinutes + totalMinutes) * 60) / 60;
+        const computedHour = (Math.floor(roundedTotalMinutes / 60) % 24 + 24) % 24;
+        const computedMinute = Math.floor(roundedTotalMinutes % 60);
 
         return `${String(computedHour).padStart(2, "0")}:${String(computedMinute).padStart(2, "0")} Kenyan Time`;
     }
@@ -164,8 +171,7 @@ class TipsConsumptionClient {
                 seen.add(key);
                 return true;
             })
-            .map((tip) => this.formatPremiumCard(tip))
-            .filter(Boolean);
+            .map((tip) => this.formatPremiumCard(tip)).filter(Boolean);
 
         return sortedTips;
     }
@@ -236,45 +242,30 @@ class TipsConsumptionClient {
         const isBetOfDay = /bet of the day/i.test(combinedText) || tip.isFeatured;
 
         // 1. Heading
-        if (isTennisBetOfDay) {
-            lines.push("🎾 || Tennis Bet of the Day❗️");
-        } else if (isBetOfDay) {
-            lines.push("Bet of the day❗️");
-        } else {
-            lines.push(`${sportEmoji} || ${tip.sport || "Match"}`);
-        }
+        if (isTennisBetOfDay) lines.push("🎾 || Tennis Bet of the Day❗️");
+        else if (isBetOfDay) lines.push("Bet of the day❗️");
+        else lines.push(`${sportEmoji} || ${tip.sport || "Match"}`);
 
         // 2. Fixture Line
         if (tip.homeTeam && tip.awayTeam) {
-            if (isBetOfDay) {
-                lines.push(`${sportEmoji} || ${tip.homeTeam} v ${tip.awayTeam}`);
-            } else {
-                lines.push(`${tip.homeTeam} vs ${tip.awayTeam}`);
-            }
+            if (isBetOfDay) lines.push(`${sportEmoji} || ${tip.homeTeam} v ${tip.awayTeam}`);
+            else lines.push(`${tip.homeTeam} vs ${tip.awayTeam}`);
         }
 
         // 3. League Line (if meaningful)
         const leagueText = this.getLeagueText(tip);
-        if (leagueText) {
-            lines.push(`League: ${leagueText}`);
-        }
+        if (leagueText) lines.push(`League: ${leagueText}`);
 
         // 4. Kickoff Line
-        if (tip.kickoff) {
-            lines.push(`Beginning: ${this.formatKickoffText(tip.kickoff)}`);
-        }
+        if (tip.kickoff) lines.push(`Beginning: ${this.formatKickoffText(tip.kickoff)}`);
 
         // 5. Main Bet & Stake
         const tipsList = Array.isArray(tip.tips) && tip.tips.length > 0 ? tip.tips : [];
         const mainTip = tipsList.length > 0
             ? tipsList.reduce((prev, curr) => (Number(curr.units || 0) > Number(prev.units || 0) ? curr : prev), tipsList[0])
-            : {
-                selection: tip.selection || tip.market || "Selected Tip",
-                units: tip.stakeUnits ?? 2,
-                odds: tip.odds,
-            };
+            : { selection: tip.selection || tip.market || "Selected Tip", units: tip.stakeUnits ?? 2, odds: tip.odds, };
 
-        lines.push(`Bet: ${this.normalizeLabel(mainTip.selection)}`);
+        lines.push(`Bet: ${this.formatSelectionWithMarket(mainTip.selection, mainTip.market)}`);
         lines.push(`Stake: ${mainTip.units || 2} Units`);
 
         // 6. Verdict / Reason Narrative
@@ -313,28 +304,20 @@ class TipsConsumptionClient {
         const isFeaturedFootball = /bet of the day/i.test(combinedText) || Boolean(tip.isFeatured);
 
         const mainTip = this.getMainTip(tip);
-        const mainSelection = this.normalizeLabel(mainTip ? (mainTip.selection || mainTip.market || tip.selection || tip.market) : (tip.selection || tip.market || "Selected Tip"));
+        const mainSelection = this.formatSelectionWithMarket(mainTip ? (mainTip.selection || mainTip.market || tip.selection || tip.market) : (tip.selection || tip.market || "Selected Tip"), mainTip ? (mainTip.market || tip.market) : tip.market);
         const mainStake = this.getMainStake(tip);
         const verdict = this.cleanPreview(tip.verdict || tip.preview);
         const tipsList = Array.isArray(tip.tips) ? tip.tips : [];
         const lines = [];
 
-        if (isFeaturedTennis) {
-            lines.push("Tennis Bet of the Day");
-        } else if (isFeaturedFootball) {
-            lines.push("Bet of the Day");
-        } else {
-            lines.push(this.normalizeLabel(String(tip.sport || "Match")));
-        }
+        if (isFeaturedTennis) lines.push("Tennis Bet of the Day");
+        else if (isFeaturedFootball) lines.push("Bet of the Day");
+        else lines.push(this.normalizeLabel(String(tip.sport || "Match")));
 
-        if (tip.homeTeam && tip.awayTeam) {
-            lines.push(`${sportEmoji} || ${tip.homeTeam} v ${tip.awayTeam}`);
-        }
+        if (tip.homeTeam && tip.awayTeam) lines.push(`${sportEmoji} || ${tip.homeTeam} v ${tip.awayTeam}`);
 
         const leagueText = this.getLeagueText(tip);
-        if (leagueText) {
-            lines.push(`League: ${leagueText}`);
-        }
+        if (leagueText) lines.push(`League: ${leagueText}`);
 
         if (kickoffText) lines.push(`Beginning: ${kickoffText}`);
 
@@ -354,7 +337,7 @@ class TipsConsumptionClient {
 
         if (tipsList.length > 0) {
             for (const item of tipsList) {
-                const normalizedSelection = this.normalizeLabel(item.selection || item.market || "Tip");
+                const normalizedSelection = this.formatSelectionWithMarket(item.selection, item.market);
                 const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
                 const units = Number(item.units ?? item.stakeUnits ?? 1);
                 lines.push(`${normalizedSelection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
@@ -406,11 +389,9 @@ class TipsConsumptionClient {
 
         if (tip.homeTeam && tip.awayTeam) {
             const fixtureText = `${fixturePrefix ? `${fixturePrefix} ` : ""}${tip.homeTeam} v ${tip.awayTeam}`.trim();
-            if (fixturePrefix) {
-                lines.push(fixtureText);
-            } else {
-                lines.push(`${tip.homeTeam} vs ${tip.awayTeam}`);
-            }
+
+            if (fixturePrefix) lines.push(fixtureText);
+            else lines.push(`${tip.homeTeam} vs ${tip.awayTeam}`);
         }
 
         if (showBetOfDayHeader && tip.homeTeam && tip.awayTeam) {
@@ -429,7 +410,7 @@ class TipsConsumptionClient {
 
         const selection = this.getMainSelection(tip);
         if (selection) {
-            lines.push(`Bet: ${this.normalizeLabel(selection)}`);
+            lines.push(`Bet: ${selection}`);
         }
 
         const stake = this.getMainStake(tip);
@@ -447,21 +428,34 @@ class TipsConsumptionClient {
             for (const item of listedTips) {
                 const oddsText = Number.isFinite(Number(item.odds)) ? ` @${this.formatOdds(item.odds)}` : "";
                 const units = Number(item.units ?? item.stakeUnits ?? 1);
-                lines.push(`${item.selection || item.market || "Tip"}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+                lines.push(`${this.formatSelectionWithMarket(item.selection, item.market)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
             }
         } else if (tip.selection) {
             const oddsText = Number.isFinite(Number(tip.odds)) ? ` @${this.formatOdds(tip.odds)}` : "";
             const units = Number(tip.stakeUnits ?? tip.units ?? 1);
-            lines.push(`${tip.selection}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
+            lines.push(`${this.formatSelectionWithMarket(tip.selection, tip.market)}${oddsText} - ${units} Unit${units === 1 ? "" : "s"}`);
         }
 
         return lines.join("\n").trim();
     }
 
+    formatSelectionWithMarket(selection, market) {
+        const normalizedSelection = this.normalizeLabel(selection || "");
+        const normalizedMarket = this.normalizeLabel(market || "");
+        
+        if (!normalizedSelection) return normalizedMarket || "Tip";
+        if (!normalizedMarket) return normalizedSelection;
+        if (normalizedSelection.toLowerCase() === normalizedMarket.toLowerCase()) return normalizedSelection;
+        if (normalizedSelection.toLowerCase().includes(normalizedMarket.toLowerCase())) return normalizedSelection;
+        if (/match result|full time result|winner|moneyline|to win/i.test(normalizedMarket)) return normalizedSelection;
+        return `${normalizedSelection} ${normalizedMarket}`;
+    }
+
     getMainSelection(tip) {
         const mainTip = this.getMainTip(tip);
         const selection = mainTip ? mainTip.selection || mainTip.market || tip.selection : tip.selection || tip.market || "Selected Tip";
-        return this.normalizeLabel(selection);
+        const market = mainTip ? mainTip.market || tip.market : tip.market;
+        return this.formatSelectionWithMarket(selection, market);
     }
 
     getMainStake(tip) {
@@ -516,11 +510,19 @@ class TipsConsumptionClient {
         const sport = String(tip.sport || "").trim();
 
         const genericSportNames = /^(football|soccer|cricket|volleyball|esports|baseball|basketball|tennis|rugby|boxing|golf|ice hockey|darts|snooker|horse racing|american football|rugby league|rugby union|australian rules)$/i;
+        const placeholderLeagueText = /^(some data here|n\/a|na|null|undefined|unknown|tbd|to be determined)$/i;
+        const isProbableLocation = (value) => {
+            const plain = String(value || "").trim();
+            if (!plain) return false;
+            return /(North Carolina|California|Florida|Texas|Georgia|Arizona|South Carolina|Nevada|Ohio|Tennessee|Washington|Pennsylvania|New York|England|Scotland|Wales|Ireland|France|Spain|Germany|Italy|Portugal|United States|USA|Canada|Mexico|Australia|New Zealand|South Africa|Japan|Korea|Brazil|Argentina)/i.test(plain);
+        };
         const isMeaningful = (value) => {
             const lower = String(value || "").toLowerCase();
-            if (!lower || /bet of the day|tennis bet of the day|betting tips/i.test(lower)) return false;
+            if (!lower || placeholderLeagueText.test(lower)) return false;
+            if (/bet of the day|tennis bet of the day|betting tips/i.test(lower)) return false;
             if (lower === sport.toLowerCase()) return false;
             if (genericSportNames.test(lower)) return false;
+            if (sport.toLowerCase() === "golf" && isProbableLocation(value)) return false;
             return true;
         };
 
@@ -529,6 +531,15 @@ class TipsConsumptionClient {
             if (isMeaningful(candidate)) return this.normalizeLabel(candidate);
         }
 
+        const fixtureTournament = [tip.homeTeam, tip.awayTeam, previewTitle].find((candidate) => {
+            if (!candidate) return false;
+            const clean = this.normalizeLabel(candidate);
+            if (!clean || clean.toLowerCase() === "field") return false;
+            if (sport.toLowerCase() === "golf" && isProbableLocation(clean)) return false;
+            return /championship|open|masters|cup|classic|international|finals|tour|pga|wta|atp|tournament/i.test(clean);
+        });
+        if (fixtureTournament) return this.normalizeLabel(fixtureTournament);
+
         // Always attempt to extract a clean league / tournament name from the previewTitle.
         // The title may contain "Betting Tips" (which isMeaningful would reject as a whole)
         // but still encode a valid league after the dash — e.g.
@@ -536,6 +547,41 @@ class TipsConsumptionClient {
         if (previewTitle) {
             const extracted = this.extractLeagueFromTitle(previewTitle);
             if (extracted) return this.normalizeLabel(extracted);
+
+            const titleLooksLikeTournament = !/\s+(?:v|vs)\s+/i.test(previewTitle)
+                && !/bet of the day|betting tips|predictions|tips/i.test(previewTitle)
+                && (sport.toLowerCase() === "golf" || /championship|open|masters|cup|classic|international|finals|tour/i.test(previewTitle));
+            if (titleLooksLikeTournament) {
+                return this.normalizeLabel(previewTitle);
+            }
+        }
+
+        if (tip.preview || tip.verdict) {
+            const narrative = String(tip.preview || tip.verdict || "");
+            const locationMatch = narrative.match(/\bin\s+(?:the\s+)?([A-Z][A-Za-z0-9\s&]+?)(?:[.!?]|$)/);
+            if (locationMatch) {
+                const candidate = this.normalizeLabel(locationMatch[1]);
+                if (candidate && !/bet of the day|betting tips|predictions|tips/i.test(candidate) && !(sport.toLowerCase() === "golf" && isProbableLocation(candidate))) {
+                    return candidate;
+                }
+            }
+
+            const eventLocationMatch = narrative.match(/\b(?:at|in)\s+([A-Z][A-Za-z0-9\s&]+?)(?:[.!?]|$)/);
+            if (eventLocationMatch) {
+                const candidate = this.normalizeLabel(eventLocationMatch[1]);
+                if (candidate && !/bet of the day|betting tips|predictions|tips/i.test(candidate) && !(sport.toLowerCase() === "golf" && isProbableLocation(candidate))) {
+                    return candidate;
+                }
+            }
+        }
+
+        if (String(tip.sport || "").toLowerCase() === "tennis") {
+            const narrative = String(tip.preview || tip.verdict || "");
+            const venueMatch = narrative.match(/\bin\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*)/);
+            if (venueMatch) {
+                const candidate = this.normalizeLabel(venueMatch[1]);
+                if (candidate && candidate !== "US" && candidate !== "Open") return `WTA ${candidate}`;
+            }
         }
 
         return "";
@@ -557,6 +603,15 @@ class TipsConsumptionClient {
      * @param {string} title
      * @returns {string|null}
      */
+    cleanLeagueCandidate(candidate) {
+        if (!candidate) return "";
+        let clean = String(candidate).trim();
+        clean = clean.replace(/\s+(?:Invites|Tips|Predictions|Preview|Matchups?|Clashes?|Matches?|Today|Live|Now)\s*$/i, "");
+        clean = clean.replace(/^(?:[A-Z]{2,}\s+(?:and\s+)?[A-Z]{2,}\s+Clash\s+for\s+|[A-Z]{2,}\s+Clash\s+for\s+)/i, "");
+        clean = clean.replace(/\s+[–—-]\s*.*$/, "");
+        return clean.trim();
+    }
+
     extractLeagueFromTitle(title) {
         if (!title) return null;
 
@@ -572,7 +627,7 @@ class TipsConsumptionClient {
         // 1. "in the [League Name]" at end or before separator
         const inTheMatch = title.match(/\bin\s+the\s+([A-Z][A-Za-z0-9\s&]+?)(?:$|\s*[-–—|])/);
         if (inTheMatch) {
-            const candidate = inTheMatch[1].trim();
+            const candidate = this.cleanLeagueCandidate(inTheMatch[1]);
             if (isValidLeague(candidate)) return candidate;
         }
 
@@ -580,15 +635,22 @@ class TipsConsumptionClient {
         const inShortMatch = title.match(/\bIn\s+([A-Z]{2,6})(?:\s+[A-Za-z]+)?$/)
             || title.match(/\bIn\s+((?:[A-Z][a-z]+\s?){1,3})$/)
         if (inShortMatch) {
-            const candidate = inShortMatch[1].trim();
+            const candidate = this.cleanLeagueCandidate(inShortMatch[1]);
             if (isValidLeague(candidate)) return candidate;
         }
 
         // 3. Dash/em-dash clause: "– ... at [the] [League Name]" optionally ending with "Strong"
         const dashAtMatch = title.match(/[–—]\s*.{0,80}\bat\s+(?:the\s+)?([A-Z][A-Za-z0-9\s&]+?)(?:\s+Strong\b|\s+this\b|\s+tonight\b|$)/);
         if (dashAtMatch) {
-            const candidate = dashAtMatch[1].trim();
+            const candidate = this.cleanLeagueCandidate(dashAtMatch[1]);
             if (isValidLeague(candidate)) return candidate;
+        }
+
+        // 3b. Simple tournament suffix after a dash: "- WTA Guadalajara 2026"
+        const trailingDashMatch = title.match(/[-–—|]\s*([A-Z][A-Za-z0-9&\s]*\d{4}?[A-Za-z0-9\s&]*)$/);
+        if (trailingDashMatch) {
+            const candidate = trailingDashMatch[1].trim();
+            if (isValidLeague(candidate)) return this.cleanLeagueCandidate(candidate);
         }
 
         // 4. Verb-bridge pattern: "– [Team] Expected to [Verb] [LEAGUE] Strong"
@@ -596,7 +658,7 @@ class TipsConsumptionClient {
         //    Looks for: dash + content + verb + CAPITALIZED_PHRASE + "Strong" at end
         const verbBridgeMatch = title.match(/[–—]\s*.+\b(?:Start|Handle|Win|Begin|Enter|Face|Dominate|Take|Tackle|Compete|Play)\s+((?:[A-Z][A-Za-z0-9]*(?:\s+|\s*&\s*))+\d{4}(?:\s+[A-Za-z]+)*)\s+Strong\s*$/);
         if (verbBridgeMatch) {
-            const candidate = verbBridgeMatch[1].trim();
+            const candidate = this.cleanLeagueCandidate(verbBridgeMatch[1]);
             if (isValidLeague(candidate)) return candidate;
         }
 
@@ -604,7 +666,7 @@ class TipsConsumptionClient {
         //     Captures the last title-cased multi-word group with a year before "Strong"
         const yearBeforeStrong = title.match(/([A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+)*\s+\d{4}(?:\s+[A-Z][A-Za-z]+)*)\s+Strong\s*$/);
         if (yearBeforeStrong) {
-            const candidate = yearBeforeStrong[1].trim();
+            const candidate = this.cleanLeagueCandidate(yearBeforeStrong[1]);
             if (isValidLeague(candidate)) return candidate;
         }
 
@@ -612,7 +674,7 @@ class TipsConsumptionClient {
         // Require the league contains a year OR 3+ words to avoid matching team names
         const atMatch = title.match(/\bat\s+(?:the\s+)?([A-Z][A-Za-z0-9\s&]+?)(?:\s+Strong\b|\s+this\b|\s+tonight\b|$|\s*[-–—|])/);
         if (atMatch) {
-            const candidate = atMatch[1].trim();
+            const candidate = this.cleanLeagueCandidate(atMatch[1]);
             const wordCount = candidate.split(/\s+/).length;
             const hasYear = /\d{4}/.test(candidate);
             // Accept if: has a year, or 3+ words (enough to be a tournament name, not a city/team)
@@ -650,7 +712,7 @@ class TipsConsumptionClient {
         if (value.includes("rugby") || value.includes("rugby league") || value.includes("rugby union") || value.includes("australian rules")) return "🏉";
         if (value.includes("volleyball")) return "🏐";
         if (value.includes("boxing")) return "🥊";
-        if (value.includes("golf")) return "⛳️";
+        if (value.includes("golf") || value.includes("pga") || value.includes("lpga") || value.includes("european tour") || value.includes("tour championship")) return "⛳️";
         if (value.includes("darts") || value.includes("dart")) return "🎯";
         if (value.includes("snooker") || value.includes("pool")) return "🎱";
         if (value.includes("horse racing") || value.includes("horse-racing") || value.includes("horse")) return "🐎";

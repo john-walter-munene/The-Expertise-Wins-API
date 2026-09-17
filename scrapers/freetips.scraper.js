@@ -24,6 +24,7 @@ class FreeTipsMaxBetScraper {
 
         // Always refresh the local HTML file from the site before scraping.
         this.useLocalHtml = true;
+
         // FreeTips is protected by Cloudflare, so Chrome/Edge must remain
         // enabled for service and contract runs as well as production. Unit
         // tests that need deterministic fixtures disable it explicitly.
@@ -32,14 +33,21 @@ class FreeTipsMaxBetScraper {
 
         // Candidate locations for the local HTML file.
         // If a path is provided, it overrides these candidates.
+        // Prefer orchestrator-managed snapshot locations by default so callers
+        // don't accidentally read/write into the repository `tests/` tree.
         this.localHtmlCandidates = [
-            path.resolve(__dirname, "..", "tests", "freetips", "freetips.html"),
+            path.resolve(__dirname, "..", "orchestrator", "free-tips", "freetips.html"),
+            path.resolve(__dirname, "..", "orchestrator", "free-tips.html"),
             path.resolve(process.cwd(), "freetips.html"),
+            path.resolve(__dirname, "..", "tests", "freetips", "freetips.html"),
             path.resolve(__dirname, "..", "tests", "freetips.html"),
             path.resolve(__dirname, "freetips.html"),
         ];
 
-        this.localSnapshotDir = path.resolve(__dirname, "..", "tests", "freetips");
+        // Default snapshot directory moved to orchestrator/free-tips for
+        // alignment with the orchestrator workflow. Tests may still override
+        // this value when they need ephemeral directories.
+        this.localSnapshotDir = path.resolve(__dirname, "..", "orchestrator", "free-tips");
         this.legacySnapshotDirs = [];
 
         // Allows tests / callers to override the exact local file path.
@@ -119,17 +127,31 @@ class FreeTipsMaxBetScraper {
 
     cleanSnapshotDirectories() {
         const staleLegacyDir = path.resolve(__dirname, "..", "tests", "freetips-pages");
-        for (const dir of [...this.getSnapshotDirectories(), staleLegacyDir]) {
+        const orchestratorLegacyDir = path.resolve(__dirname, "..", "orchestrator", "free-tips-pages");
+
+        for (const dir of [...this.getSnapshotDirectories(), staleLegacyDir, orchestratorLegacyDir]) {
             try {
                 if (!fs.existsSync(dir)) continue;
-                if (path.basename(dir).toLowerCase() === "freetips-pages" && path.resolve(dir) === staleLegacyDir) {
+
+                // Only remove entire legacy directories that we explicitly know
+                // about and expect to be safe to delete.
+                const base = path.basename(dir).toLowerCase();
+                if ((base === "freetips-pages" && path.resolve(dir) === staleLegacyDir) ||
+                    (base === "free-tips-pages" && path.resolve(dir) === orchestratorLegacyDir)) {
                     fs.rmSync(dir, { recursive: true, force: true });
                     continue;
                 }
+
+                // For normal snapshot directories, only remove loose HTML files.
                 for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-                    const entryPath = path.join(dir, entry.name);
-                    if (entry.isDirectory()) fs.rmSync(entryPath, { recursive: true, force: true });
-                    else if (/\.(html?|htm)$/i.test(entry.name)) fs.rmSync(entryPath, { force: true });
+                    try {
+                        if (!entry.isFile()) continue;
+                        if (/\.(html?|htm)$/i.test(entry.name)) {
+                            fs.rmSync(path.join(dir, entry.name), { force: true });
+                        }
+                    } catch {
+                        // ignore per-file failures, continue best-effort cleanup
+                    }
                 }
             } catch {
                 // best effort
@@ -388,19 +410,24 @@ class FreeTipsMaxBetScraper {
 
             const featuredUrls = [this.betOfTheDayUrl, this.tennisBetOfTheDayUrl];
             const featuredTips = [];
+
             const processedFixtures = new Set();
 
             for (const featuredUrl of featuredUrls) {
                 try {
                     const featuredHtml = await this.downloadPage(featuredUrl, null, { forceRefresh: true });
                     const featuredTip = this.extractMainTip(cheerio.load(featuredHtml), featuredUrl);
+
                     if (featuredTip && (featuredTip.homeTeam || featuredTip.selection)) {
+
                         // Check if this featured tip has an expanded full preview link
                         const deepLinkUrl = featuredTip.seeFullPreviewUrl || featuredTip.detailsUrl;
+
                         if (deepLinkUrl && !/\/betting\/(?:bet-of-the-day|tennis-bet-of-the-day)\/?$/i.test(deepLinkUrl)) {
                             try {
                                 const detailHtml = await this.downloadPage(deepLinkUrl, null, { forceRefresh: true });
                                 const detailData = await this.parseDetailPage(deepLinkUrl, detailHtml);
+
                                 if (detailData && detailData.tips && detailData.tips.length > 0) {
                                     featuredTip.verdict = detailData.verdict || featuredTip.verdict;
                                     featuredTip.tips = detailData.tips;
@@ -688,13 +715,21 @@ class FreeTipsMaxBetScraper {
                 : (text.match(/Returns\s*\$?\s*(\d+(?:\.\d+)?)/i) || [null, null])[1];
             const odds = returnsMatch ? Number(returnsMatch) : null;
 
-            const [homeTeam, awayTeam] = this.splitTeams(titleText);
-            // Non-match filter: must have 2 distinct teams and not generic "Event" or article titles
+            let [homeTeam, awayTeam] = this.splitTeams(titleText);
+            const sport = this.inferSportFromUrl(detailsUrl);
+
+            if ((!homeTeam || !awayTeam) && sport === "Golf") {
+                homeTeam = titleText.replace(/\s*[-–—]\s*.*$/i, "").trim() || titleText.trim();
+                awayTeam = "Field";
+            }
+
+            // Non-match filter: must have 2 distinct teams and not generic "Event" or article titles.
+            // Golf tournaments are commonly published as a single tournament title rather than a two-team fixture.
             if (!homeTeam || !awayTeam || awayTeam.toLowerCase() === "event" || /^freetips/i.test(homeTeam)) continue;
 
             seen.add(detailsUrl);
             tips.push({
-                sport: this.inferSportFromUrl(detailsUrl),
+                sport,
                 league: this.inferLeagueFromUrl(detailsUrl, titleText),
                 homeTeam,
                 awayTeam,
@@ -770,23 +805,40 @@ class FreeTipsMaxBetScraper {
                     verdict = rawVerdict;
                 }
 
-                // Extract tips from verdictBoxItems
+                // Extract tips from verdictBoxItems.
+                // Some cards do not use .marketName classes and instead render the
+                // market phrase alongside the player name as plain text, e.g.
+                // "Ben James Each-Way @31.00 - 1 Unit" or
+                // "Rashid Khan Best Afghanistan Bowler @3.60 - 2 Units".
                 verdictEl.find(".verdictBoxItem").each((_, el) => {
                     const item = $(el);
                     const bookmaker = item.find(".logoImgVBD img").attr("alt") ||
                         item.find(".placeBetBtnVT").text().replace(/^Bet\s+at\s+/i, "").trim() ||
                         "Stake.com";
-                    const selection = item.find(".hedTextVBD .hedTextOneVBD:not(.marketName)").first().text().trim();
-                    const market = item.find(".hedTextVBD .marketName").text().trim() ||
+
+                    const lineText = item.find(".hedTextVBD").text().replace(/\s+/g, " ").trim();
+                    const oddsUnitsMatch = lineText.match(/@([\d.]+)\s*-\s*(\d+(?:\.\d+)?)\s*Units?/i);
+                    const odds = oddsUnitsMatch ? parseFloat(oddsUnitsMatch[1]) : null;
+                    const units = oddsUnitsMatch ? parseFloat(oddsUnitsMatch[2]) : 2;
+
+                    let selection = item.find(".hedTextVBD .hedTextOneVBD:not(.marketName)").first().text().trim();
+                    let market = item.find(".hedTextVBD .marketName").text().trim() ||
                         item.find(".hedTextVBD .hedTextOneVBD.marketName").text().trim() ||
                         "Match Result";
-                    const oddsUnitsText = item.find(".hedTextVBD .hedTextTwoVBD").text().trim();
 
-                    const oddsMatch = oddsUnitsText.match(/@([\d.]+)/);
-                    const unitsMatch = oddsUnitsText.match(/(\d+(?:\.\d+)?)\s*Units?/i);
+                    const plainLabelParts = item.find(".hedTextVBD .hedTextOneVBD")
+                        .map((_, el) => $(el).text().trim())
+                        .get()
+                        .filter(Boolean);
 
-                    const odds = oddsMatch ? parseFloat(oddsMatch[1]) : null;
-                    const units = unitsMatch ? parseFloat(unitsMatch[1]) : 2;
+                    if (!market || market === "Match Result") {
+                        if (plainLabelParts.length >= 2) {
+                            const [firstLabel, ...remainingLabels] = plainLabelParts;
+                            selection = firstLabel;
+                            market = remainingLabels.join(" ") || "Match Result";
+                        }
+                    }
+
                     const betUrl = item.find("a.placeBetBtnVT").attr("href") ||
                         item.find(".logoImgVBD a").attr("href") ||
                         null;
@@ -795,7 +847,7 @@ class FreeTipsMaxBetScraper {
                         tips.push({
                             bookmaker,
                             selection,
-                            market,
+                            market: market && market !== "Match Result" ? market : (lineText.includes("Each-Way") ? "Each-Way" : "Match Result"),
                             odds,
                             units,
                             betUrl,

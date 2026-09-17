@@ -170,6 +170,55 @@ const isFeaturedUrl = (url) => /\/betting\/(?:bet-of-the-day|tennis-bet-of-the-d
     assert.strictEqual(extracted[0].odds, 27.5);
     assert.strictEqual(extracted[0].detailsUrl, "https://www.freetips.com/betting/team-secret-vs-onside-gaming/");
 
+    const golfListingHtml = `
+      <section class="betting-list">
+        <article class="tip-item">
+          <a href="/golf/biltmore-championship-asheville-tips-20260916-0049/">
+            <h3>Biltmore Championship Asheville</h3>
+          </a>
+          <div>Starts 2h 35m</div>
+          <div>Returns $2.10</div>
+        </article>
+      </section>
+    `;
+    const golfListings = scraper.extractListingTips(cheerio.load(golfListingHtml));
+    assert.strictEqual(golfListings.length, 1, "Golf tournament listings should not be filtered out just because they are single-title fixtures");
+    assert.strictEqual(golfListings[0].sport, "Golf", "Golf listing should map to the Golf sport bucket");
+    assert.strictEqual(golfListings[0].homeTeam, "Biltmore Championship Asheville", "Golf tournament name should be preserved as the fixture label");
+    assert.strictEqual(golfListings[0].awayTeam, "Field", "Golf compensation should use the Field placeholder for the opposing side");
+
+    const rawMarketDetailHtml = `
+      <html><body>
+        <div class="verdict" data-compid="news-verdict">
+          <div class="verdictBoxItem">
+            <div class="hedTextVBD">
+              <div class="hedTextOneVBD">Ben James</div>
+              <div class="hedTextOneVBD">Each-Way</div>
+              <div class="hedTextTwoVBD">@31.00 - 1 Unit</div>
+            </div>
+          </div>
+          <div class="verdictBoxItem">
+            <div class="hedTextVBD">
+              <div class="hedTextOneVBD">Rashid Khan</div>
+              <div class="hedTextOneVBD">Best Afghanistan Bowler</div>
+              <div class="hedTextTwoVBD">@3.60 - 2 Units</div>
+            </div>
+          </div>
+          <div class="verdictBoxItem">
+            <div class="hedTextVBD">
+              <div class="hedTextOneVBD">Harry Kane</div>
+              <div class="hedTextOneVBD">To Score Anytime</div>
+              <div class="hedTextTwoVBD">@2.10 - 1 Unit</div>
+            </div>
+          </div>
+        </div>
+      </body></html>
+    `;
+    const rawMarketParsed = await scraper.parseDetailPage("https://www.freetips.com/football/harry-kane-to-score-anytime/", rawMarketDetailHtml);
+    assert.ok(rawMarketParsed.tips.some((tip) => tip.selection === "Ben James" && tip.market === "Each-Way"), "Golf rows should preserve the market label when it sits after the player name");
+    assert.ok(rawMarketParsed.tips.some((tip) => tip.selection === "Rashid Khan" && /Best Afghanistan Bowler/i.test(tip.market)), "Cricket rows should keep the market label when the site writes a descriptive market phrase");
+    assert.ok(rawMarketParsed.tips.some((tip) => tip.selection === "Harry Kane" && /To Score Anytime/i.test(tip.market)), "Football rows with descriptive markets should still be parsed");
+
     const firstItem = extracted[0];
     assert.strictEqual(firstItem.league, "Betting Tips");
     assert.strictEqual(firstItem.sport, "Football");

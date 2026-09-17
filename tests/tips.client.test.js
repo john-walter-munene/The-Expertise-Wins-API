@@ -7,6 +7,7 @@ const featuredFootball = {
   source: "freetips",
   sport: "Football",
   competition: "Bet of the Day",
+  league: "Europa League",
   homeTeam: "Estoril",
   awayTeam: "FC Arouca",
   kickoff: "23:15",
@@ -47,6 +48,7 @@ const featuredTennis = {
   source: "freetips",
   sport: "Tennis",
   competition: "Tennis Bet of the Day",
+  league: "WTA Guadalajara 2026",
   homeTeam: "Arthur Gea",
   awayTeam: "Botic Van De Zandschulp",
   kickoff: "13h 33m",
@@ -65,7 +67,7 @@ const featuredTennis = {
 const basketballTip = {
   source: "freetips",
   sport: "Basketball",
-  competition: "Basketball",
+  competition: "FIBA Asia Cup",
   homeTeam: "Japan",
   awayTeam: "South Korea",
   kickoff: "2h 3m",
@@ -73,7 +75,7 @@ const basketballTip = {
   selection: "Over 157.5",
   odds: 1.9,
   stakeUnits: 2,
-  previewTitle: "Japan vs South Korea",
+  previewTitle: "Japan vs South Korea - FIBA Asia Cup",
   verdict: "Both sides are playing at a high tempo.",
   tips: [
     { bookmaker: "Stake.com", selection: "Over 157.5", market: "Total Points", odds: 1.9, units: 2 }
@@ -146,6 +148,24 @@ assert.ok(
 );
 assert.ok(String(vipText).includes("League:"), "Non-featured cards should include the league metadata line");
 
+assert.strictEqual(client.normalizeLabel("Cristina Bucsa (6/4)"), "Cristina Bucsa", "Trailing fractional prices should be stripped from selection labels");
+
+const placeholderLeagueTip = {
+  sport: "Tennis",
+  competition: "Some data here",
+  previewTitle: "Cristina Bucsa v Sara Bejlek - WTA Guadalajara 2026",
+  homeTeam: "Cristina Bucsa",
+  awayTeam: "Sara Bejlek",
+  selection: "Cristina Bucsa (6/4)",
+  odds: 2.5,
+  stakeUnits: 2,
+  tips: [{ selection: "Cristina Bucsa (6/4)", odds: 2.5, units: 2 }]
+};
+const tennisLeagueCard = client.formatMaxbetVipCard(placeholderLeagueTip);
+assert.ok(!String(tennisLeagueCard).includes("Some data here"), "Placeholder league text should not be rendered in VIP tennis cards");
+assert.ok(/Guadalajara/i.test(String(tennisLeagueCard)), "VIP tennis cards should recover the tournament from the title instead of the placeholder league");
+assert.ok(!String(tennisLeagueCard).includes("(6/4)"), "Fractional odds suffixes should be removed from the tennis selection text");
+
 const sportEmojiCoverage = new Map([
   ["American Football", "🏈"],
   ["Football", "⚽️"],
@@ -192,6 +212,52 @@ const relativeKickoffCard = client.formatPikkBetterVipCard(relativeKickoffTip);
 assert.ok(String(relativeKickoffCard).includes("Beginning:"), "Countdown-style kickoff text should still be rendered with a beginning line");
 assert.ok(!String(relativeKickoffCard).includes("8h 3m"), "Countdown-style kickoff should not be displayed as remaining time");
 assert.ok(/Beginning: \d{2}:\d{2} Kenyan Time/.test(String(relativeKickoffCard)), "Relative kickoff should convert into a real Kenyan clock time");
+
+const golfTip = {
+  source: "freetips",
+  sport: "Golf",
+  competition: "PGA Tour",
+  homeTeam: "Rory McIlroy",
+  awayTeam: "Scottie Scheffler",
+  kickoff: "11h 15m",
+  market: "Head-to-Head",
+  selection: "Rory McIlroy",
+  odds: 2.1,
+  stakeUnits: 2,
+  previewTitle: "Rory McIlroy vs Scottie Scheffler - PGA Tour",
+  verdict: "McIlroy has the better recent form on this course.",
+  tips: [{ selection: "Rory McIlroy", market: "Head-to-Head", odds: 2.1, units: 2 }]
+};
+const golfVipCard = client.formatPikkBetterVipCard(golfTip);
+assert.ok(String(golfVipCard).includes("Golf") || String(golfVipCard).includes("PGA Tour"), "Golf VIP cards should render with a sport or tournament label");
+assert.ok(String(golfVipCard).includes("Rory McIlroy"), "Golf VIP cards should carry the player fixture");
+assert.ok(!String(golfVipCard).includes("Some data here"), "Golf VIP cards should never render placeholder league labels");
+
+const tournamentGolfTip = {
+  source: "freetips",
+  sport: "Golf",
+  competition: "PGA Tour",
+  homeTeam: "Biltmore Championship Asheville",
+  awayTeam: "Field",
+  kickoff: "13:59",
+  market: "Each-Way",
+  selection: "Ben James",
+  odds: 31,
+  stakeUnits: 1,
+  previewTitle: "Biltmore Championship Asheville",
+  verdict: "Bridgeman has come good lately and can win the inaugural Biltmore Championship Asheville tournament come Sunday. Thompson has a chance to win the title if he can replicate his recent results. Ghim has threatened to produce a top result lately and should enter calculations in North Carolina. James has had an excellent year and can upstage the others with a victory at the Cliff of Walnut Cove this weekend.",
+  tips: [
+    { selection: "Ben James", market: "Each-Way", odds: 31, units: 1 },
+    { selection: "Davis Thompson", market: "Each-Way", odds: 26, units: 1 },
+    { selection: "Doug Ghim", market: "Each-Way", odds: 26, units: 1 },
+    { selection: "Jacob Bridgeman", market: "Each-Way", odds: 15, units: 1 }
+  ]
+};
+const tournamentGolfCard = client.formatPikkBetterVipCard(tournamentGolfTip);
+assert.ok(String(tournamentGolfCard).includes("Biltmore Championship Asheville"), "Golf tournament cards should keep the event title instead of a location");
+assert.ok(!String(tournamentGolfCard).split("\n").some((line) => /^League:\s*North Carolina\s*$/i.test(line)), "Narrative location names must not replace the golf tournament league metadata line");
+assert.ok(String(tournamentGolfCard).includes("Ben James Each-Way"), "Golf rows should include both the player and the market in the selection text so the bet remains useful");
+assert.ok(String(tournamentGolfCard).includes("Davis Thompson Each-Way"), "Secondary golf picks should also carry their market label in the rendered selection");
 
 const premiumBucketText = premiumOnlyResult.premiumCards[0];
 assert.ok(String(premiumBucketText).includes("Bet of the day") || String(premiumBucketText).includes("Tennis Bet of the Day") || String(premiumBucketText).includes("Japan vs South Korea"), "Premium bucket should keep the detailed cards");
