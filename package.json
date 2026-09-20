@@ -1,0 +1,30 @@
+{
+  "name": "the-expertise-wins-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A live sports API monorepo to get daily predictions from a reliable pool of sources. Free and premium tips for football, basketball, tennis, and more. Workspace root — apps live in cli/, backend/ and frontend/.",
+  "workspaces": [
+    "cli",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "test": "npm run test -w cli",
+    "start": "npm run start -w cli",
+    "test:premium-source": "npm run test:premium-source -w cli",
+    "test:settlement": "npm run test:settlement -w cli",
+    "expertise": "npm run expertise -w cli",
+    "settlement": "npm run settlement -w cli"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/john-walter-munene/The-Expertise-Wins-API.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/john-walter-munene/The-Expertise-Wins-API/issues"
+  },
+  "homepage": "https://github.com/john-walter-munene/The-Expertise-Wins-API#readme"
+}

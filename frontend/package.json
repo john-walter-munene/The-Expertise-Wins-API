@@ -1,0 +1,8 @@
+{
+  "name": "@tekw/frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Frontend web app for The Expertise Wins: UI for browsing daily free and premium tips from @tekw/backend. Placeholder — to be scaffolded in the next phase.",
+  "main": "index.js",
+  "scripts": {}
+}

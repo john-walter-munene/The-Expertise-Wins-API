@@ -1,0 +1,265 @@
+const assert = require("assert");
+const { TipsConsumptionClient } = require("../services/tips.client");
+
+const client = new TipsConsumptionClient();
+
+const featuredFootball = {
+  source: "freetips",
+  sport: "Football",
+  competition: "Bet of the Day",
+  league: "Europa League",
+  homeTeam: "Estoril",
+  awayTeam: "FC Arouca",
+  kickoff: "23:15",
+  market: "Over 4.5 Goals",
+  selection: "Over 4.5 Goals",
+  odds: 1.85,
+  stakeUnits: 4,
+  previewTitle: "Bet of the Day",
+  verdict: "Estoril have seen over 4.5 goals in 5 of their last 6 matches against Arouca.",
+  isFeatured: true,
+  tips: [
+    { bookmaker: "Stake.com", selection: "BTTS Yes", market: "Both Teams to Score", odds: 1.67, units: 4 },
+    { bookmaker: "Stake.com", selection: "Over 4.5 Goals", market: "Goals", odds: 1.85, units: 4 }
+  ]
+};
+
+const listedFootball = {
+  source: "freetips",
+  sport: "Football",
+  competition: "Primeira Liga",
+  homeTeam: "Estoril",
+  awayTeam: "Porto",
+  kickoff: "20:00",
+  market: "BTTS",
+  selection: "BTTS Yes",
+  odds: 1.85,
+  stakeUnits: 3,
+  previewTitle: "Estoril vs Porto",
+  verdict: "This should be open and competitive.",
+  tips: [
+    { bookmaker: "Stake.com", selection: "BTTS Yes & Over 3.5", market: "Double Chance", odds: 3.2, units: 1 },
+    { bookmaker: "Stake.com", selection: "BTTS Yes & Over 2.5", market: "Goals", odds: 2.25, units: 2 },
+    { bookmaker: "Stake.com", selection: "BTTS Yes", market: "Both Teams to Score", odds: 1.85, units: 3 }
+  ]
+};
+
+const featuredTennis = {
+  source: "freetips",
+  sport: "Tennis",
+  competition: "Tennis Bet of the Day",
+  league: "WTA Guadalajara 2026",
+  homeTeam: "Arthur Gea",
+  awayTeam: "Botic Van De Zandschulp",
+  kickoff: "13h 33m",
+  market: "Winner",
+  selection: "Van de Zandschulp Win",
+  odds: 1.65,
+  stakeUnits: 4,
+  previewTitle: "Tennis Bet of the Day",
+  verdict: "Van de Zandschulp should be too good for Gea.",
+  isFeatured: true,
+  tips: [
+    { bookmaker: "Stake.com", selection: "Van de Zandschulp Win", market: "Winner", odds: 1.65, units: 4 }
+  ]
+};
+
+const basketballTip = {
+  source: "freetips",
+  sport: "Basketball",
+  competition: "FIBA Asia Cup",
+  homeTeam: "Japan",
+  awayTeam: "South Korea",
+  kickoff: "2h 3m",
+  market: "Total Points",
+  selection: "Over 157.5",
+  odds: 1.9,
+  stakeUnits: 2,
+  previewTitle: "Japan vs South Korea - FIBA Asia Cup",
+  verdict: "Both sides are playing at a high tempo.",
+  tips: [
+    { bookmaker: "Stake.com", selection: "Over 157.5", market: "Total Points", odds: 1.9, units: 2 }
+  ]
+};
+
+const result = client.consume({ free: [featuredFootball, listedFootball, featuredTennis, basketballTip], premium: [] });
+
+const premiumPriorityResult = client.consume({
+  free: [],
+  premium: [
+    {
+      source: "freetips",
+      sport: "Football",
+      competition: "Bet of the Day",
+      homeTeam: "Man Utd",
+      awayTeam: "Man City",
+      kickoff: "19:30",
+      market: "Full Time Result",
+      selection: "Draw",
+      odds: 3.8,
+      stakeUnits: 3,
+      previewTitle: "Man United vs Man City Predictions & Betting Tips - Red Devils to Hold Their Own in the Manchester Derby",
+      verdict: "This should be a tight derby.",
+      tips: [{ selection: "Draw", market: "Full Time Result", odds: 3.8, units: 3 }]
+    },
+    featuredTennis,
+    basketballTip
+  ]
+});
+
+const premiumOnlyResult = client.consume({
+  free: [],
+  premium: [featuredFootball, featuredTennis, basketballTip]
+});
+
+assert.ok(Array.isArray(result.maxbetVipCards), "MaxBet VIP cards should exist");
+assert.ok(Array.isArray(result.expertiseWinsFreeCards), "Expertise Wins free cards should exist");
+assert.ok(Array.isArray(result.pikkBetterVipCards), "PikkBetter VIP cards should exist");
+assert.strictEqual(result.maxbetVipCards.length, 2, "Featured tips should be routed to MaxBet VIP");
+assert.strictEqual(result.expertiseWinsFreeCards.length, 1, "Football listings should be sent to Expertise Wins");
+assert.strictEqual(result.pikkBetterVipCards.length, 1, "Other sports should be sent to PikkBetter VIP");
+assert.strictEqual(result.freeCards.length, 1, "Only plain football listings should be in the free bucket");
+assert.strictEqual(premiumOnlyResult.premiumCards.length, 3, "Featured and non-football premium items should remain in the premium bucket");
+assert.strictEqual(premiumPriorityResult.premiumCards.length, 3, "Premium priority list should keep featured items in front");
+assert.ok(String(premiumPriorityResult.premiumCards[0]).includes("Bet of the day"), "Football Bet of the Day should lead the premium list");
+assert.ok(String(premiumPriorityResult.premiumCards[1]).includes("Tennis Bet of the Day") || String(premiumPriorityResult.premiumCards[1]).includes("Tennis"), "Tennis Bet of the Day should be second in the premium list");
+
+const maxbetText = result.maxbetVipCards[0];
+assert.ok(!String(maxbetText).includes("Pikk Maxbet VIP"), "Featured cards should no longer use the old channel prefix");
+assert.ok(String(maxbetText).includes("Bet of the Day"), "Featured card should lead with the Bet of the Day headline");
+assert.ok(String(maxbetText).includes("League:"), "Featured cards should include the league metadata line");
+
+const freeText = result.expertiseWinsFreeCards[0];
+assert.ok(String(freeText).includes("The Expertise Wins Free Tips"), "Free tips should include the main channel header");
+assert.ok(String(freeText).includes("Estoril vs Porto"), "Football listing should keep the match fixture header");
+
+const freeBucketText = result.freeCards[0];
+assert.ok(String(freeBucketText).includes("Estoril vs Porto"), "Free bucket should contain the plain football fixture");
+assert.ok(!String(freeBucketText).includes("This should be open and competitive"), "Free bucket should stay plain and not include premium detail");
+
+const vipText = result.pikkBetterVipCards[0];
+assert.ok(!String(vipText).includes("PikkBetter VIP"), "Non-featured cards should not carry the old channel prefix");
+assert.ok(
+  String(vipText).includes("Basketball") ||
+  String(vipText).includes("Cricket") ||
+  String(vipText).includes("Volleyball") ||
+  String(vipText).includes("Esports"),
+  "Other-sport cards should begin with the sport name"
+);
+assert.ok(String(vipText).includes("League:"), "Non-featured cards should include the league metadata line");
+
+assert.strictEqual(client.normalizeLabel("Cristina Bucsa (6/4)"), "Cristina Bucsa", "Trailing fractional prices should be stripped from selection labels");
+
+const placeholderLeagueTip = {
+  sport: "Tennis",
+  competition: "Some data here",
+  previewTitle: "Cristina Bucsa v Sara Bejlek - WTA Guadalajara 2026",
+  homeTeam: "Cristina Bucsa",
+  awayTeam: "Sara Bejlek",
+  selection: "Cristina Bucsa (6/4)",
+  odds: 2.5,
+  stakeUnits: 2,
+  tips: [{ selection: "Cristina Bucsa (6/4)", odds: 2.5, units: 2 }]
+};
+const tennisLeagueCard = client.formatMaxbetVipCard(placeholderLeagueTip);
+assert.ok(!String(tennisLeagueCard).includes("Some data here"), "Placeholder league text should not be rendered in VIP tennis cards");
+assert.ok(/Guadalajara/i.test(String(tennisLeagueCard)), "VIP tennis cards should recover the tournament from the title instead of the placeholder league");
+assert.ok(!String(tennisLeagueCard).includes("(6/4)"), "Fractional odds suffixes should be removed from the tennis selection text");
+
+const sportEmojiCoverage = new Map([
+  ["American Football", "🏈"],
+  ["Football", "⚽️"],
+  ["Soccer", "⚽️"],
+  ["Basketball", "🏀"],
+  ["Baseball", "⚾️"],
+  ["Tennis", "🎾"],
+  ["Cricket", "🏏"],
+  ["Rugby", "🏉"],
+  ["Rugby Union", "🏉"],
+  ["Rugby League", "🏉"],
+  ["Australian Rules", "🏉"],
+  ["Esports", "🎮"],
+  ["Ice Hockey", "🏒"],
+  ["Volleyball", "🏐"],
+  ["Boxing", "🥊"],
+  ["Golf", "⛳️"],
+  ["Darts", "🎯"],
+  ["Snooker", "🎱"],
+  ["Horse Racing", "🐎"]
+]);
+
+for (const [sport, expected] of sportEmojiCoverage.entries()) {
+  assert.strictEqual(client.getSportEmoji(sport), expected, `Emoji for ${sport} should match the scraper coverage`);
+}
+
+const relativeKickoffTip = {
+  source: "freetips",
+  sport: "Cricket",
+  competition: "2nd T20",
+  homeTeam: "Afghanistan",
+  awayTeam: "India",
+  kickoff: "8h 3m",
+  market: "Ishan Kishan",
+  selection: "Ishan Kishan",
+  odds: 1.83,
+  stakeUnits: 2,
+  previewTitle: "Afghanistan v India 2nd T20",
+  verdict: "Ishan Kishan is the best value in the batting markets.",
+  tips: [{ selection: "Ishan Kishan", market: "Top Batsman", odds: 1.83, units: 2 }]
+};
+
+const relativeKickoffCard = client.formatPikkBetterVipCard(relativeKickoffTip);
+assert.ok(String(relativeKickoffCard).includes("Beginning:"), "Countdown-style kickoff text should still be rendered with a beginning line");
+assert.ok(!String(relativeKickoffCard).includes("8h 3m"), "Countdown-style kickoff should not be displayed as remaining time");
+assert.ok(/Beginning: \d{2}:\d{2} Kenyan Time/.test(String(relativeKickoffCard)), "Relative kickoff should convert into a real Kenyan clock time");
+
+const golfTip = {
+  source: "freetips",
+  sport: "Golf",
+  competition: "PGA Tour",
+  homeTeam: "Rory McIlroy",
+  awayTeam: "Scottie Scheffler",
+  kickoff: "11h 15m",
+  market: "Head-to-Head",
+  selection: "Rory McIlroy",
+  odds: 2.1,
+  stakeUnits: 2,
+  previewTitle: "Rory McIlroy vs Scottie Scheffler - PGA Tour",
+  verdict: "McIlroy has the better recent form on this course.",
+  tips: [{ selection: "Rory McIlroy", market: "Head-to-Head", odds: 2.1, units: 2 }]
+};
+const golfVipCard = client.formatPikkBetterVipCard(golfTip);
+assert.ok(String(golfVipCard).includes("Golf") || String(golfVipCard).includes("PGA Tour"), "Golf VIP cards should render with a sport or tournament label");
+assert.ok(String(golfVipCard).includes("Rory McIlroy"), "Golf VIP cards should carry the player fixture");
+assert.ok(!String(golfVipCard).includes("Some data here"), "Golf VIP cards should never render placeholder league labels");
+
+const tournamentGolfTip = {
+  source: "freetips",
+  sport: "Golf",
+  competition: "PGA Tour",
+  homeTeam: "Biltmore Championship Asheville",
+  awayTeam: "Field",
+  kickoff: "13:59",
+  market: "Each-Way",
+  selection: "Ben James",
+  odds: 31,
+  stakeUnits: 1,
+  previewTitle: "Biltmore Championship Asheville",
+  verdict: "Bridgeman has come good lately and can win the inaugural Biltmore Championship Asheville tournament come Sunday. Thompson has a chance to win the title if he can replicate his recent results. Ghim has threatened to produce a top result lately and should enter calculations in North Carolina. James has had an excellent year and can upstage the others with a victory at the Cliff of Walnut Cove this weekend.",
+  tips: [
+    { selection: "Ben James", market: "Each-Way", odds: 31, units: 1 },
+    { selection: "Davis Thompson", market: "Each-Way", odds: 26, units: 1 },
+    { selection: "Doug Ghim", market: "Each-Way", odds: 26, units: 1 },
+    { selection: "Jacob Bridgeman", market: "Each-Way", odds: 15, units: 1 }
+  ]
+};
+const tournamentGolfCard = client.formatPikkBetterVipCard(tournamentGolfTip);
+assert.ok(String(tournamentGolfCard).includes("Biltmore Championship Asheville"), "Golf tournament cards should keep the event title instead of a location");
+assert.ok(!String(tournamentGolfCard).split("\n").some((line) => /^League:\s*North Carolina\s*$/i.test(line)), "Narrative location names must not replace the golf tournament league metadata line");
+assert.ok(String(tournamentGolfCard).includes("Ben James Each-Way"), "Golf rows should include both the player and the market in the selection text so the bet remains useful");
+assert.ok(String(tournamentGolfCard).includes("Davis Thompson Each-Way"), "Secondary golf picks should also carry their market label in the rendered selection");
+
+const premiumBucketText = premiumOnlyResult.premiumCards[0];
+assert.ok(String(premiumBucketText).includes("Bet of the day") || String(premiumBucketText).includes("Tennis Bet of the Day") || String(premiumBucketText).includes("Japan vs South Korea"), "Premium bucket should keep the detailed cards");
+
+console.log("tips.client grouping test passed");

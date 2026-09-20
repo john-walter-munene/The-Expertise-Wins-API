@@ -1,0 +1,8 @@
+{
+  "name": "@tekw/backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend API app for The Expertise Wins: REST endpoints serving tips produced by @tekw/cli. Placeholder — to be scaffolded in the next phase.",
+  "main": "server.js",
+  "scripts": {}
+}
