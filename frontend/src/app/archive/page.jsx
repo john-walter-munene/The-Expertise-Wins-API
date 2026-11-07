@@ -1,7 +1,8 @@
 // frontend/src/app/archive/page.jsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -89,11 +90,11 @@ function isArchiveDateAllowed(value) {
   );
 }
 
-function createInitialFilters() {
+function createInitialFilters(initialDay) {
   return {
     sport: "",
     tier: "free",
-    day: getLatestArchiveDate(),
+    day: isArchiveDateAllowed(initialDay) ? initialDay : getLatestArchiveDate(),
     search: "",
     outcome: "",
   };
@@ -271,12 +272,49 @@ function belongsToTier(tip, tier) {
 }
 
 export default function ArchivePage() {
+  // `useSearchParams` opts the route into client rendering, so it must sit
+  // inside a Suspense boundary for the build to prerender the shell.
+  return (
+    <Suspense fallback={<ArchiveLoadingState />}>
+      <ArchiveView />
+    </Suspense>
+  );
+}
+// Skeleton shown while the query string is being read on the client.
+function ArchiveLoadingState() {
+  return (
+    <main
+      id="archive-results"
+      aria-busy="true"
+      className="mx-auto w-full max-w-7xl space-y-8 px-4 py-10 sm:px-6 lg:px-8"
+    >
+      <p role="status" className="sr-only">
+        Loading the tip archive…
+      </p>
+      <div aria-hidden="true" className="space-y-4">
+        {[0, 1, 2].map((item) => (
+          <div
+            key={item}
+            className="h-48 rounded-2xl border border-slate-800 bg-slate-900/60 motion-safe:animate-pulse"
+          />
+        ))}
+      </div>
+    </main>
+  );
+}
+function ArchiveView() {
+  // Deep links such as /archive?day=2026-10-31 (used in the sitemap and
+  // shared links) open that specific historical day instead of the default.
+  const searchParams = useSearchParams();
+  const requestedDay = searchParams?.get("day");
+  const initialDayRef = useRef(requestedDay);
+
   const [archive, setArchive] = useState(
     createEmptyArchive
   );
 
-  const [filters, setFilters] = useState(
-    createInitialFilters
+  const [filters, setFilters] = useState(() =>
+    createInitialFilters(initialDayRef.current)
   );
 
   const [searchInput, setSearchInput] = useState("");

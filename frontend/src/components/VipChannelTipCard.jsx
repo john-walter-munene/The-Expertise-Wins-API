@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { formatTipChannelCard } from "../lib/tipChannelFormatter";
+import { getMatchTitle, getTipHref } from "../lib/tipSlug";
 
 const TIER_STYLES = {
   VIP: {
@@ -37,8 +38,8 @@ export default function VipChannelTipCard({ tip, tier = "VIP", cardNumber = 1, s
       {hasTipId && (
         <footer className="border-t border-slate-800 px-5 py-2">
           <Link
-            href={`/tips/${encodeURIComponent(String(tipId))}`}
-            aria-label={`View details for ${tip.homeTeam || ""} ${tip.awayTeam || "tip"}`}
+            href={getTipHref(tip)}
+            aria-label={`View details for ${getMatchTitle(tip)}`}
             className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-emerald-400 transition-colors hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
           >
             More details <ArrowRight className="h-4 w-4" aria-hidden="true" />

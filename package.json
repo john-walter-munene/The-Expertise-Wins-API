@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "description": "The Expertise Wins monorepo containing CLI engine, Express REST backend, and Next.js web application.",
   "main": "app.js",
+  "packageManager": "npm@12.2.1",
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0",
+    "npm": ">=12.2.1"
+  },
   "scripts": {
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,emerald\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run --prefix backend dev",
