@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -26,6 +26,13 @@ import {
   statusColor,
 } from "../../../lib/utils";
 import { formatSelection } from "../../../lib/tipChannelFormatter";
+import {
+  getMatchTitle,
+  getTipHref,
+  isLegacyTipHref,
+  parseTipSlug,
+} from "../../../lib/tipSlug";
+import { generateStructuredData } from "../../../lib/seo";
 
 const focusStyles =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dark-card";
@@ -66,7 +73,10 @@ function getDateTimeAttribute(value) {
 
 export default function TipDetailPage() {
   const params = useParams();
-  const id = typeof params?.id === "string" ? params.id : null;
+  const router = useRouter();
+  const routeSegment =
+    typeof params?.id === "string" ? params.id : null;
+  const { lead: slugLead, id } = parseTipSlug(routeSegment);
 
   const [tip, setTip] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -104,6 +114,16 @@ export default function TipDetailPage() {
         }
 
         setTip(tipData);
+
+        // Upgrade ID-only URLs (legacy shares, previously indexed links) to the
+        // canonical team-vs-team address so every tip has exactly one URL.
+        if (isLegacyTipHref(routeSegment)) {
+          const canonicalHref = getTipHref(tipData);
+
+          if (canonicalHref) {
+            router.replace(canonicalHref, { scroll: false });
+          }
+        }
       } catch (requestError) {
         if (cancelled) return;
 
@@ -126,7 +146,7 @@ export default function TipDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, retryCount]);
+  }, [id, retryCount, routeSegment, router]);
 
   const handleRetry = () => {
     setLoading(true);
@@ -221,11 +241,7 @@ export default function TipDetailPage() {
     );
   }
 
-  const matchTitle =
-    tip.teams ||
-    (tip.homeTeam || tip.awayTeam
-      ? `${tip.homeTeam || "Home"} vs ${tip.awayTeam || "Away"}`
-      : "Match details unavailable");
+  const matchTitle = getMatchTitle(tip);
 
   const outcome = normalizeEnum(tip.result?.outcome || tip.outcome);
   const status = normalizeEnum(tip.status) || "PUBLISHED";
@@ -268,8 +284,65 @@ export default function TipDetailPage() {
       (extraTip && typeof extraTip === "object")
   );
 
+  // Search engines read this to understand the page: the match, the
+  // competition, and the selection being recommended.
+  const structuredData = generateStructuredData({
+    type: "SportsEvent",
+    title: `${matchTitle} Prediction & Tips`,
+    description: `${matchTitle}${competition !== "Competition unavailable" ? ` in the ${competition}` : ""} — selection, market and odds preview from The Expertise Wins.`,
+    url: getTipHref(tip) || `/tips/${encodeURIComponent(id)}`,
+    datePublished: getDateTimeAttribute(tip.createdAt),
+    dateModified: getDateTimeAttribute(
+      tip.updatedAt || tip.createdAt
+    ),
+    mainEntity: {
+      "@type": "SportsEvent",
+      name: matchTitle,
+      sport,
+      ...(kickoff ? { startDate: getDateTimeAttribute(kickoff) } : {}),
+      ...(competition !== "Competition unavailable"
+        ? {
+            superEvent: {
+              "@type": "SportsEvent",
+              name: competition,
+            },
+          }
+        : {}),
+      ...(tip.homeTeam && tip.awayTeam
+        ? {
+            competitor: [
+              { "@type": "SportsTeam", name: tip.homeTeam },
+              { "@type": "SportsTeam", name: tip.awayTeam },
+            ],
+          }
+        : {}),
+      ...(kickoff
+        ? {
+            location: {
+              "@type": "Place",
+              name: `${matchTitle} venue`,
+            },
+          }
+        : {}),
+    },
+    author: "The Expertise Wins",
+    extra: {
+      about: {
+        "@type": "Thing",
+        name: selection !== "—" ? selection : market,
+      },
+    },
+  });
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData),
+        }}
+      />
+
       {/* Back navigation */}
       <Link href="/tips" className={backLinkStyles}>
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />

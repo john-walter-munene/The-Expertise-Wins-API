@@ -8,6 +8,7 @@ import {
   statusColor,
 } from "../lib/utils";
 import { getSettlementMarker } from "../lib/settlementMarker";
+import { getTipHref, getMatchTitle } from "../lib/tipSlug";
 
 // Normalize enum values for consistent badge styling.
 function normalizeEnum(value) {
@@ -29,11 +30,7 @@ export default function TipCard({ tip, tier, showSettlementMarkers = false }) {
       ? { border: "border-indigo-400/40", glow: "shadow-indigo-950/30", accent: "text-indigo-300", badge: "border-indigo-400/30 bg-indigo-400/10 text-indigo-300", label: "VIP" }
       : { border: "border-emerald-400/40", glow: "shadow-emerald-950/30", accent: "text-emerald-300", badge: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300", label: "FREE" };
 
-  const matchTitle =
-    tip.teams ||
-    (tip.homeTeam || tip.awayTeam
-      ? `${tip.homeTeam || "Home"} vs ${tip.awayTeam || "Away"}`
-      : "Match details unavailable");
+  const matchTitle = getMatchTitle(tip);
 
   const sport = tip.sport || "Sport unavailable";
   const competition =
@@ -185,7 +182,7 @@ export default function TipCard({ tip, tier, showSettlementMarkers = false }) {
 
         {hasTipId && (
           <Link
-            href={`/tips/${encodeURIComponent(String(tipId))}`}
+            href={getTipHref(tip)}
             aria-label={`View details for ${matchTitle}`}
             className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg px-2 font-semibold text-emerald-400 transition-colors hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
           >

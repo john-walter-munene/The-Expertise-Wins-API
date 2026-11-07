@@ -1,0 +1,1281 @@
+[
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Bet of the Day",
+    "league": "Bet of the Day",
+    "country": null,
+    "homeTeam": "Racing Santander",
+    "awayTeam": "Real Madrid",
+    "kickoff": "15:15",
+    "market": "Result/Both to Score",
+    "selection": "Real Madrid Win & BTTS",
+    "odds": 2.1,
+    "stakeUnits": 2,
+    "previewTitle": "Racing Santander vs Real Madrid Tips & Live Stream – Los Blancos to Keep Winning in La Liga",
+    "preview": "Racing Santander are very prolific at home, and I expect them to find the net on Sunday, but stopping red-hot Real Madrid is unlikely. An away win & BTTS is the best bet.",
+    "verdict": "Racing Santander are very prolific at home, and I expect them to find the net on Sunday, but stopping red-hot Real Madrid is unlikely. An away win & BTTS is the best bet.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Real Madrid Win & BTTS",
+        "market": "Result/Both to Score",
+        "odds": 2.1,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Real Madrid Win 2-1",
+        "market": "Correct Score",
+        "odds": 11,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/spanish-la-liga/racing-santander-vs-real-madrid-tips-20261030-0018/",
+    "status": "settled",
+    "result": null,
+    "outcome": "lose",
+    "extraTips": [
+      {
+        "selection": "Real Madrid Win 2-1",
+        "market": "Correct Score",
+        "odds": 11,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Tennis",
+    "competition": "Tennis Bet of the Day",
+    "league": "Tennis Bet of the Day",
+    "country": null,
+    "homeTeam": "Alex De Minaur",
+    "awayTeam": "Carlos Alcaraz",
+    "kickoff": "13:00",
+    "market": "Total Games",
+    "selection": "Over 21.5 Games",
+    "odds": 1.85,
+    "stakeUnits": 4,
+    "previewTitle": "Alex de Minaur vs Carlos Alcaraz Betting Tips & Live Stream - De Minaur to Keep it Close at ATP Vienna",
+    "preview": "Carlos Alcaraz has seen a tie break in nine of his previous 11 matches. Alex de Minaur is capable of sticking around in Vienna, but his losing record against Alcaraz is set to continue.",
+    "verdict": "Carlos Alcaraz has seen a tie break in nine of his previous 11 matches. Alex de Minaur is capable of sticking around in Vienna, but his losing record against Alcaraz is set to continue.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Over 21.5 Games",
+        "market": "Total Games",
+        "odds": 1.85,
+        "units": 4,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Over 10.5 Games",
+        "market": "Set 1 Total Games",
+        "odds": 3.4,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Carlos Alcaraz Win 2-1",
+        "market": "Set Betting",
+        "odds": 4.3,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Over 12.5 Games",
+        "market": "Set 1 Total Games",
+        "odds": 5,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/tennis/alex-de-minaur-vs-carlos-alcaraz-tips-live-stream-20261101-0001/",
+    "status": "settled",
+    "result": null,
+    "outcome": "lose",
+    "extraTips": [
+      {
+        "selection": "Over 10.5 Games",
+        "market": "Set 1 Total Games",
+        "odds": 3.4,
+        "stakeUnits": 2,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "Carlos Alcaraz Win 2-1",
+        "market": "Set Betting",
+        "odds": 4.3,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "Over 12.5 Games",
+        "market": "Set 1 Total Games",
+        "odds": 5,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Tennis",
+    "competition": "Final in Tokyo",
+    "league": "Final in Tokyo",
+    "country": null,
+    "homeTeam": "Leylah Fernandez",
+    "awayTeam": "Diana Shnaider",
+    "kickoff": "42m",
+    "market": "Total Games",
+    "selection": "Over 20.5",
+    "odds": 1.64,
+    "stakeUnits": 2,
+    "previewTitle": "Leylah Fernandez vs Diana Shnaider Betting Tips & Live Stream – Shnaider to Edge Fernandez in the Final in Tokyo",
+    "preview": "Both players have found strong form in recent months and arrive with plenty of confidence. However, with Shnaider reaching her first final since last year, she will be eager to make the most of this opportunity, giving her a slight edge over Fernandez.",
+    "verdict": "Both players have found strong form in recent months and arrive with plenty of confidence. However, with Shnaider reaching her first final since last year, she will be eager to make the most of this opportunity, giving her a slight edge over Fernandez.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Over 20.5",
+        "market": "Total Games",
+        "odds": 1.64,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Diana Shnaider",
+        "market": "Match Winner",
+        "odds": 1.62,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/tennis/leylah-fernandez-vs-diana-shnaider-betting-tips-20261031-0018/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Diana Shnaider",
+        "market": "Match Winner",
+        "odds": 1.62,
+        "stakeUnits": 2,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Football",
+    "league": "Football",
+    "country": null,
+    "homeTeam": "Club America",
+    "awayTeam": "Toluca",
+    "kickoff": "52m",
+    "market": "Both Teams to Score/Total Goals",
+    "selection": "BTTS & Over 2.5",
+    "odds": 1.72,
+    "stakeUnits": 4,
+    "previewTitle": "Club America vs Toluca Predictions & Tips - Goals Expected in Liga MX Encounter",
+    "preview": "Both teams have been in several high-scoring outcomes in recent weeks, and another entertaining encounter should deliver in the goal markets. I have a stake on BTTS and over 2.5 goals in Mexico City.",
+    "verdict": "Both teams have been in several high-scoring outcomes in recent weeks, and another entertaining encounter should deliver in the goal markets. I have a stake on BTTS and over 2.5 goals in Mexico City.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "BTTS & Over 2.5",
+        "market": "Both Teams to Score/Total Goals",
+        "odds": 1.72,
+        "units": 4,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "2-2",
+        "market": "Correct Score",
+        "odds": 14,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/club-america-vs-toluca-predictions-20261030-0033/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "2-2",
+        "market": "Correct Score",
+        "odds": 14,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Football",
+    "league": "Football",
+    "country": null,
+    "homeTeam": "Melbourne Victory",
+    "awayTeam": "Central Coast Mariners",
+    "kickoff": "1h 42m",
+    "market": "Both Teams To Score",
+    "selection": "BTTS - Yes",
+    "odds": 1.7,
+    "stakeUnits": 2,
+    "previewTitle": "Melbourne Victory vs Central Coast Mariners Tips & Live Stream - Back goals in A-League clash",
+    "preview": "Both teams are tipped to score, with Grimaldi & Lavale featuring in player props.",
+    "verdict": "Both teams are tipped to score, with Grimaldi & Lavale featuring in player props.",
+    "tips": [
+      {
+        "bookmaker": "1xBet",
+        "selection": "BTTS - Yes",
+        "market": "Both Teams To Score",
+        "odds": 1.7,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/d6a163ef190612112956/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Oli Lavale 1+",
+        "market": "Total Shots On Target",
+        "odds": 2.2,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/f4936465260924081208/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Bc.Game Sport",
+        "selection": "Matthew Grimaldi 1+",
+        "market": "Total Shots On Target",
+        "odds": 1.62,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/f56557260105173714/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/melbourne-victory-vs-central-coast-mariners-tips-20261030-0028/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Oli Lavale 1+",
+        "market": "Total Shots On Target",
+        "odds": 2.2,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "Matthew Grimaldi 1+",
+        "market": "Total Shots On Target",
+        "odds": 1.62,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Rugby League",
+    "competition": "Rugby League",
+    "league": "Rugby League",
+    "country": null,
+    "homeTeam": "Lebanon",
+    "awayTeam": "France",
+    "kickoff": "4h 22m",
+    "market": "Line",
+    "selection": "France +31.5",
+    "odds": 2,
+    "stakeUnits": 2,
+    "previewTitle": "Lebanon vs France Tips & Preview - Handicap the value in Rugby League World Cup clash",
+    "preview": "Take France +31.5, Kiraz 2+ tries and the Kiraz and Mourgue same game multi.",
+    "verdict": "Take France +31.5, Kiraz 2+ tries and the Kiraz and Mourgue same game multi.",
+    "tips": [
+      {
+        "bookmaker": "Bc.Game Sport",
+        "selection": "France +31.5",
+        "market": "Line",
+        "odds": 2,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/f56557260105173714/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Same Game Multi",
+        "market": "Kiraz & Mourgue ATS",
+        "odds": 8,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "J Kiraz 2+",
+        "market": "Tries",
+        "odds": 3.75,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/rugby-league/lebanon-vs-france-tips-20261031-0010/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Same Game Multi",
+        "market": "Kiraz & Mourgue ATS",
+        "odds": 8,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "J Kiraz 2+",
+        "market": "Tries",
+        "odds": 3.75,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Football",
+    "league": "Football",
+    "country": null,
+    "homeTeam": "Perth Glory",
+    "awayTeam": "Adelaide United",
+    "kickoff": "5h 42m",
+    "market": "Total Goals",
+    "selection": "Over 2.5",
+    "odds": 1.65,
+    "stakeUnits": 2,
+    "previewTitle": "Perth Glory vs Adelaide United Tips & Live Stream - Glory days in A-League",
+    "preview": "Perth can come out on top at home, with 3+ total goals also tipped.",
+    "verdict": "Perth can come out on top at home, with 3+ total goals also tipped.",
+    "tips": [
+      {
+        "bookmaker": "Bc.Game Sport",
+        "selection": "Over 2.5",
+        "market": "Total Goals",
+        "odds": 1.65,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/f56557260105173714/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Planbet",
+        "selection": "Tom Lawrence 1+",
+        "market": "Total Shots On Target",
+        "odds": 1.55,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/6a320699240918101555/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Brody Burkitt 2+",
+        "market": "Total Shots On Target",
+        "odds": 4,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/f4936465260924081208/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "1xBet",
+        "selection": "Perth Win",
+        "market": "Full-Time Result",
+        "odds": 2.6,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/d6a163ef190612112956/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/perth-glory-vs-adelaide-united-tips-20261030-0029/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Tom Lawrence 1+",
+        "market": "Total Shots On Target",
+        "odds": 1.55,
+        "stakeUnits": 2,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "Brody Burkitt 2+",
+        "market": "Total Shots On Target",
+        "odds": 4,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "Perth Win",
+        "market": "Full-Time Result",
+        "odds": 2.6,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Tennis",
+    "competition": "Tennis",
+    "league": "Tennis",
+    "country": null,
+    "homeTeam": "Lilli Tagger",
+    "awayTeam": "Harriet Dart",
+    "kickoff": "6h 12m",
+    "market": "Correct Score",
+    "selection": "Tagger 2-0",
+    "odds": 1.76,
+    "stakeUnits": 2,
+    "previewTitle": "Lilli Tagger vs Harriet Dart Betting Tips & Live Stream – Tagger Backed to Lift the Guangzhou Title",
+    "preview": "Harriet Dart’s return to form at tour level is impressive after struggling in recent years. However, having played five three-set matches this week could take a physical toll, making Tagger the favourite to claim the title.",
+    "verdict": "Harriet Dart’s return to form at tour level is impressive after struggling in recent years. However, having played five three-set matches this week could take a physical toll, making Tagger the favourite to claim the title.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Tagger 2-0",
+        "market": "Correct Score",
+        "odds": 1.76,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Tagger  -1.5",
+        "market": "Handicap Games 1st Set",
+        "odds": 1.55,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/tennis/lilli-tagger-vs-harriet-dart-betting-tips-20261031-0019/",
+    "status": "settled",
+    "result": null,
+    "outcome": "lose",
+    "extraTips": [
+      {
+        "selection": "Tagger  -1.5",
+        "market": "Handicap Games 1st Set",
+        "odds": 1.55,
+        "stakeUnits": 2,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Rugby League",
+    "competition": "Rugby League",
+    "league": "Rugby League",
+    "country": null,
+    "homeTeam": "Tonga",
+    "awayTeam": "Samoa",
+    "kickoff": "6h 47m",
+    "market": "Either Team to Win by",
+    "selection": "1-12 pts",
+    "odds": 1.72,
+    "stakeUnits": 3,
+    "previewTitle": "Tonga vs Samoa Tips & Preview - Tight clash points to Tribet in Rugby League World Cup 2026",
+    "preview": "Take either team by 1-12, the draw, and Fifita and Fa'alogo anytime.",
+    "verdict": "Take either team by 1-12, the draw, and Fifita and Fa'alogo anytime.",
+    "tips": [
+      {
+        "bookmaker": "Planbet",
+        "selection": "1-12 pts",
+        "market": "Either Team to Win by",
+        "odds": 1.72,
+        "units": 3,
+        "betUrl": "https://www.freetips.com/link/6a320699240918101555/",
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Jojo Fifita",
+        "market": "Anytime Tryscorer",
+        "odds": 2,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/f4936465260924081208/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "1xBet",
+        "selection": "Sua Fa'alogo",
+        "market": "Anytime Tryscorer",
+        "odds": 2,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/d6a163ef190612112956/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Bc.Game Sport",
+        "selection": "Draw",
+        "market": "Result after 80 mins",
+        "odds": 19,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/f56557260105173714/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/rugby-league/tonga-vs-samoa-tips-20261031-0012/",
+    "status": "settled",
+    "result": null,
+    "outcome": "lose",
+    "extraTips": [
+      {
+        "selection": "Jojo Fifita",
+        "market": "Anytime Tryscorer",
+        "odds": 2,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "Sua Fa'alogo",
+        "market": "Anytime Tryscorer",
+        "odds": 2,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "Draw",
+        "market": "Result after 80 mins",
+        "odds": 19,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Basketball",
+    "competition": "Basketball",
+    "league": "Basketball",
+    "country": null,
+    "homeTeam": "Olympiakos",
+    "awayTeam": "Peristeri",
+    "kickoff": "8h 42m",
+    "market": "Total Points",
+    "selection": "Over 164.5",
+    "odds": 1.9,
+    "stakeUnits": 2,
+    "previewTitle": "Olympiakos vs Peristeri Live Stream & Tips – Entertaining Basket League Contest",
+    "preview": "Peristeri have been very entertaining to watch so far and usually look to play at a high tempo with plenty of possessions. I expect the hosts to be a bit more relaxed defensively and accept the invitation to a shooting showdown. Over 164.5 points is tipped.",
+    "verdict": "Peristeri have been very entertaining to watch so far and usually look to play at a high tempo with plenty of possessions. I expect the hosts to be a bit more relaxed defensively and accept the invitation to a shooting showdown. Over 164.5 points is tipped.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Over 164.5",
+        "market": "Total Points",
+        "odds": 1.9,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/basketball/olympiakos-vs-peristeri-live-stream-20261101-0002/",
+    "status": "settled",
+    "result": null,
+    "outcome": "lose",
+    "extraTips": [],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Eredivisie",
+    "league": "Eredivisie",
+    "country": null,
+    "homeTeam": "PEC Zwolle",
+    "awayTeam": "ADO Den Haag",
+    "kickoff": "8h 57m",
+    "market": "Both To Score/Total Goals",
+    "selection": "BTTS & Over 2.5",
+    "odds": 1.9,
+    "stakeUnits": 2,
+    "previewTitle": "PEC Zwolle vs ADO Den Haag Tips & Live Stream – Stick to Goals in the Eredivisie",
+    "preview": "PEC Zwolle average 3.40 goals per league match this season. BTTS has landed in nine of ADO Den Haag's last ten games, so this is the best bet for this upcoming clash on Sunday.",
+    "verdict": "PEC Zwolle average 3.40 goals per league match this season. BTTS has landed in nine of ADO Den Haag's last ten games, so this is the best bet for this upcoming clash on Sunday.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "BTTS & Over 2.5",
+        "market": "Both To Score/Total Goals",
+        "odds": 1.9,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Over 3.5 Goals",
+        "market": "Total Goals",
+        "odds": 2.5,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/pec-zwolle-vs-ado-den-haag-tips-20261030-0032/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Over 3.5 Goals",
+        "market": "Total Goals",
+        "odds": 2.5,
+        "stakeUnits": 1,
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Serie A",
+    "league": "Serie A",
+    "country": null,
+    "homeTeam": "Como",
+    "awayTeam": "Venezia",
+    "kickoff": "9h 12m",
+    "market": "Handicap",
+    "selection": "Como -1",
+    "odds": 1.83,
+    "stakeUnits": 3,
+    "previewTitle": "Como vs Venezia Predictions & Betting Tips - Como to Cruise to Victory in Serie A",
+    "preview": "Como have won four straight matches, scoring 12 goals, and they should have few problems extending the streak. Nico Paz is on fire right now and should get plenty of opportunities against Venezia.",
+    "verdict": "Como have won four straight matches, scoring 12 goals, and they should have few problems extending the streak. Nico Paz is on fire right now and should get plenty of opportunities against Venezia.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Como -1",
+        "market": "Handicap",
+        "odds": 1.83,
+        "units": 3,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Nico Paz",
+        "market": "Anytime Goalscorer",
+        "odds": 2.1,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Nico Paz",
+        "market": "First Goalscorer",
+        "odds": 5.5,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Como",
+        "market": "Win To Nil",
+        "odds": 2.5,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/serie-a/como-vs-venezia-predictions-tips-20261031-0011/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Nico Paz",
+        "market": "Anytime Goalscorer",
+        "odds": 2.1,
+        "stakeUnits": 2,
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "selection": "Nico Paz",
+        "market": "First Goalscorer",
+        "odds": 5.5,
+        "stakeUnits": 1,
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "selection": "Como",
+        "market": "Win To Nil",
+        "odds": 2.5,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Football",
+    "league": "Football",
+    "country": null,
+    "homeTeam": "Falkirk",
+    "awayTeam": "Celtic",
+    "kickoff": "10h 42m",
+    "market": "Both Teams to Score/Total Goals",
+    "selection": "BTTS & Over 2.5",
+    "odds": 1.83,
+    "stakeUnits": 4,
+    "previewTitle": "Falkirk vs Celtic Predictions & Tips - Goals Expected in Premiership Clash",
+    "preview": "Celtic have dominated this fixture in recent years, but Falkirk are in good form, and should get on the scoresheet this weekend. BTTS and over 2.5 goals is my first pick, while I also have a stake on Celtic to win/over 2.5 match goals.",
+    "verdict": "Celtic have dominated this fixture in recent years, but Falkirk are in good form, and should get on the scoresheet this weekend. BTTS and over 2.5 goals is my first pick, while I also have a stake on Celtic to win/over 2.5 match goals.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "BTTS & Over 2.5",
+        "market": "Both Teams to Score/Total Goals",
+        "odds": 1.83,
+        "units": 4,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Celtic/Over 2.5 Goals",
+        "market": "Result/Total Goals",
+        "odds": 1.83,
+        "units": 3,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/falkirk-vs-celtic-predictions-20261030-0042/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Celtic/Over 2.5 Goals",
+        "market": "Result/Total Goals",
+        "odds": 1.83,
+        "stakeUnits": 3,
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Super Lig",
+    "league": "Super Lig",
+    "country": null,
+    "homeTeam": "Trabzonspor",
+    "awayTeam": "Gaziantep FK",
+    "kickoff": "10h 42m",
+    "market": "Result/Both to Score",
+    "selection": "Trabzonspor Win & BTTS",
+    "odds": 2.6,
+    "stakeUnits": 2,
+    "previewTitle": "Trabzonspor vs Gaziantep Tips & Live Stream – Home Win & BTTS in the Super Lig",
+    "preview": "Trabzonspor's current form is impressive, and I will back them to extend the winning streak against struggling Gaziantep. The visitors have enough scoring potential to land a consolation goal though. Another bet worth considering is Franculino to score anytime. He netted six goals in his last five appearances for the club, while also scoring twice for Guinea Bissau against Nigeria and Tanzania in late September.",
+    "verdict": "Trabzonspor's current form is impressive, and I will back them to extend the winning streak against struggling Gaziantep. The visitors have enough scoring potential to land a consolation goal though. Another bet worth considering is Franculino to score anytime. He netted six goals in his last five appearances for the club, while also scoring twice for Guinea Bissau against Nigeria and Tanzania in late September.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Trabzonspor Win & BTTS",
+        "market": "Result/Both to Score",
+        "odds": 2.6,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Franculino",
+        "market": "Anytime Goalscorer",
+        "odds": 2,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Franculino",
+        "market": "First Goalscorer",
+        "odds": 5,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/trabzonspor-vs-gaziantep-tips-20261030-0017/",
+    "status": "settled",
+    "result": null,
+    "outcome": "lose",
+    "extraTips": [
+      {
+        "selection": "Franculino",
+        "market": "Anytime Goalscorer",
+        "odds": 2,
+        "stakeUnits": 2,
+        "outcome": "lose",
+        "status": "settled"
+      },
+      {
+        "selection": "Franculino",
+        "market": "First Goalscorer",
+        "odds": 5,
+        "stakeUnits": 1,
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Tennis",
+    "competition": "ATP Basel",
+    "league": "ATP Basel",
+    "country": null,
+    "homeTeam": "Jiri Lehecka",
+    "awayTeam": "Valentin Vacherot",
+    "kickoff": "12h 12m",
+    "market": "Winner",
+    "selection": "Valentin Vacherot Win",
+    "odds": 2.63,
+    "stakeUnits": 3,
+    "previewTitle": "Jiri Lehecka vs Valentin Vacherot Predictions & Betting Tips - Vacherot to Upset the Odds at ATP Basel",
+    "preview": "Valentin Vacherot has taken out two Top 15 players in Basel and is a big outsider in the final. Jiri Lehecka saved a match point in the semi-finals, Vacherot to win at handy odds.",
+    "verdict": "Valentin Vacherot has taken out two Top 15 players in Basel and is a big outsider in the final. Jiri Lehecka saved a match point in the semi-finals, Vacherot to win at handy odds.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Valentin Vacherot Win",
+        "market": "Winner",
+        "odds": 2.63,
+        "units": 3,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/tennis/jiri-lehecka-vs-valentin-vacherot-predictions-tips-20261031-0020/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Basketball",
+    "competition": "Basket League",
+    "league": "Basket League",
+    "country": null,
+    "homeTeam": "Aris",
+    "awayTeam": "Panathinaikos",
+    "kickoff": "12h 42m",
+    "market": "Total Points",
+    "selection": "Under 163.5",
+    "odds": 1.9,
+    "stakeUnits": 2,
+    "previewTitle": "Aris vs Panathinaikos Live Stream & Tips – Low-Scoring Affair Predicted in the Basket League",
+    "preview": "I am expecting a very close match in Thessaloniki, with Aris playing great at home, especially when the arena is sold out. Panathinaikos' form has declined slightly recently, and Obradovic is likely to rotate here, so Under 163.5 points looks like the best selection.",
+    "verdict": "I am expecting a very close match in Thessaloniki, with Aris playing great at home, especially when the arena is sold out. Panathinaikos' form has declined slightly recently, and Obradovic is likely to rotate here, so Under 163.5 points looks like the best selection.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Under 163.5",
+        "market": "Total Points",
+        "odds": 1.9,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/basketball/aris-vs-panathinaikos-live-stream-20261101-0003/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Super Lig",
+    "league": "Super Lig",
+    "country": null,
+    "homeTeam": "Kasimpasa",
+    "awayTeam": "Besiktas",
+    "kickoff": "13h 42m",
+    "market": "Both Teams to Score",
+    "selection": "BTTS Yes",
+    "odds": 1.75,
+    "stakeUnits": 2,
+    "previewTitle": "Kasimpasa vs Besiktas Tips & Live Stream – Points Shared in the Super Lig",
+    "preview": "Kasimpasa are the biggest draw specialists when playing in front of the home crowd, three of their four league games ending without a winner. Besiktas can't be trusted on the road, so I am backing these two sides to share the spoils.",
+    "verdict": "Kasimpasa are the biggest draw specialists when playing in front of the home crowd, three of their four league games ending without a winner. Besiktas can't be trusted on the road, so I am backing these two sides to share the spoils.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "BTTS Yes",
+        "market": "Both Teams to Score",
+        "odds": 1.75,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Draw",
+        "market": "Full-Time Result",
+        "odds": 4.5,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "1-1 Draw",
+        "market": "Correct Score",
+        "odds": 8.5,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/kasimpasa-vs-besiktas-tips-20261030-0016/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Draw",
+        "market": "Full-Time Result",
+        "odds": 4.5,
+        "stakeUnits": 1,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "1-1 Draw",
+        "market": "Correct Score",
+        "odds": 8.5,
+        "stakeUnits": 1,
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "Football",
+    "competition": "Premier League",
+    "league": "Premier League",
+    "country": null,
+    "homeTeam": "Liverpool",
+    "awayTeam": "Arsenal",
+    "kickoff": "14h 12m",
+    "market": "BTTS",
+    "selection": "BTTS Yes",
+    "odds": 1.7,
+    "stakeUnits": 3,
+    "previewTitle": "Liverpool vs Arsenal Tips & Predictions - Score Draw in the Premier League",
+    "preview": "Liverpool and Arsenal are in hard-to-beat form and can share the Premier League points at Anfield. Both sides get amongst the goals and BTTS also has good value.",
+    "verdict": "Liverpool and Arsenal are in hard-to-beat form and can share the Premier League points at Anfield. Both sides get amongst the goals and BTTS also has good value.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "BTTS Yes",
+        "market": "BTTS",
+        "odds": 1.7,
+        "units": 3,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Roobet ",
+        "selection": "Draw",
+        "market": "Full Time Result",
+        "odds": 3.5,
+        "units": 3,
+        "betUrl": "https://www.freetips.com/link/57a5a0c4260605151656/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Roobet ",
+        "selection": "1-1 Draw",
+        "market": "Correct Score",
+        "odds": 7.5,
+        "units": 1,
+        "betUrl": "https://www.freetips.com/link/57a5a0c4260605151656/",
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/football/english-premier-league/liverpool-vs-arsenal-tips-predictions-20261030-0027/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Draw",
+        "market": "Full Time Result",
+        "odds": 3.5,
+        "stakeUnits": 3,
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "selection": "1-1 Draw",
+        "market": "Correct Score",
+        "odds": 7.5,
+        "stakeUnits": 1,
+        "outcome": "lose",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  },
+  {
+    "source": "freetips",
+    "externalId": null,
+    "sport": "American Football",
+    "competition": "Detroit Lions Betting Tips",
+    "league": "Detroit Lions Betting Tips",
+    "country": null,
+    "homeTeam": "MIN Vikings",
+    "awayTeam": "DET Lions",
+    "kickoff": "15h 42m",
+    "market": "Spread",
+    "selection": "Detroit -3.5",
+    "odds": 1.9,
+    "stakeUnits": 4,
+    "previewTitle": "Minnesota Vikings at Detroit Lions Betting Tips – Lions To End Vikings’ Unbeaten Run In NFL",
+    "preview": "Minnesota’s defense continues to dominate, but the offense remains a major red flag for the Vikings.Detroit have enough talent on offense to put up some points here, and an improving Lions defense can help the Lions get over the line.",
+    "verdict": "Minnesota’s defense continues to dominate, but the offense remains a major red flag for the Vikings.Detroit have enough talent on offense to put up some points here, and an improving Lions defense can help the Lions get over the line.",
+    "tips": [
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Detroit -3.5",
+        "market": "Spread",
+        "odds": 1.9,
+        "units": 4,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      },
+      {
+        "bookmaker": "Stake.com",
+        "selection": "Under 46.5",
+        "market": "Total Points",
+        "odds": 1.87,
+        "units": 2,
+        "betUrl": "https://www.freetips.com/link/422d030210308094711/",
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "analytics": null,
+    "confidenceIndex": null,
+    "predictedScore": null,
+    "detailsUrl": "https://www.freetips.com/nfl/minnesota-vikings-at-detroit-lions-nfl-betting-tips-20261028-0020/",
+    "status": "settled",
+    "result": null,
+    "outcome": "win",
+    "extraTips": [
+      {
+        "selection": "Under 46.5",
+        "market": "Total Points",
+        "odds": 1.87,
+        "stakeUnits": 2,
+        "outcome": "win",
+        "status": "settled"
+      }
+    ],
+    "scrapedAt": "2026-11-01T02:17:08.449Z"
+  }
+]

@@ -16,8 +16,24 @@ export function createPageMetadata({ title, description, pathname, keywords, noi
   };
 }
 
-export function generateStructuredData({ type = "WebSite", title, description, url = "/", image, datePublished, dateModified, author }) {
+export function generateStructuredData({ type = "WebSite", title, description, url = "/", image, datePublished, dateModified, author, mainEntity, extra = {} }) {
   const canonicalUrl = `${SITE_URL}${url}`;
+  if (mainEntity) {
+    // Rich result for a single item page (for example a match tip).
+    return {
+      "@context": "https://schema.org",
+      "@type": type,
+      headline: title,
+      description,
+      url: canonicalUrl,
+      image: image || `${SITE_URL}${DEFAULT_IMAGE}`,
+      ...(datePublished ? { datePublished } : {}),
+      ...(dateModified ? { dateModified } : {}),
+      mainEntity,
+      isPartOf: { "@type": "WebSite", name: "The Expertise Wins", url: SITE_URL },
+      ...extra,
+    };
+  }
   if (type === "Article") {
     return {
       "@context": "https://schema.org",
@@ -44,5 +60,7 @@ export function generateStructuredData({ type = "WebSite", title, description, u
     name: title || "The Expertise Wins",
     url: canonicalUrl,
     description: description || "Daily sports tips, transparent archives, and performance tracking from The Expertise Wins.",
+    ...(mainEntity ? { mainEntity } : {}),
+    ...extra,
   };
 }

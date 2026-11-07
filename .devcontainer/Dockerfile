@@ -1,5 +1,9 @@
 FROM node:22-bookworm
 
+# npm 12 requires Node ^22.22.2 || ^24.15.0 || >=26 (the base image ships npm 10).
+RUN npm install -g npm@12.2.1 \
+    && npm --version
+
 WORKDIR /workspace
 
 COPY package.json package-lock.json ./
