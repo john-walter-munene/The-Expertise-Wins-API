@@ -194,6 +194,34 @@ test("saveTestResults refuses to drop tips during the merge", () => {
   assert.ok(result.count >= 2, `merge returned ${result.count} tips; both must survive`);
 });
 
+test("saveTestResults keeps earlier dump tips when a later scrape finds new games", () => {
+  const { saveTestResults } = require("../orchestrator/test-results");
+  const date = "1999-03-06";
+  const dumpPath = path.join(TEST_DUMP_DIR, "freetips-6th Mar 1999.json");
+  const workingPath = path.join(TEST_DUMP_DIR, "working", "freetips.json");
+
+  saveTestResults("freetips", [
+    { homeTeam: "A", awayTeam: "B", selection: "Win", market: "1X2" },
+    { homeTeam: "C", awayTeam: "D", selection: "Over", market: "Total Goals" },
+  ], { date });
+
+  // The dated dump must be sufficient to continue accumulating even if the
+  // replaceable working snapshot is lost between scrape runs.
+  fs.rmSync(workingPath, { force: true });
+
+  const result = saveTestResults("freetips", [
+    { homeTeam: "E", awayTeam: "F", selection: "Win", market: "1X2" },
+  ], { date });
+  const dumpedTips = JSON.parse(fs.readFileSync(dumpPath, "utf8"));
+
+  assert.strictEqual(result.dumpCount, 3, "the reported count must include the earlier dump records");
+  assert.deepStrictEqual(
+    dumpedTips.map(({ homeTeam, awayTeam }) => `${homeTeam} vs ${awayTeam}`).sort(),
+    ["A vs B", "C vs D", "E vs F"],
+    "a shorter later scrape must append new games without removing earlier ones",
+  );
+});
+
   // A dump that lists one tip twice would collapse onto one row, so the sync
   // must refuse it before touching the database.
   test("sync refuses a dump that carries the same tip twice", () => {

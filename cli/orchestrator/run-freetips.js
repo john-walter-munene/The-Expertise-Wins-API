@@ -59,8 +59,9 @@ async function run() {
 
         console.log(`Normalized ${Array.isArray(normalized) ? normalized.length : 0} tips.`);
 
-        saveTestResults("freetips", normalized, { date: todayIso, scrapedAt: stamp });
-        console.log(`Saved freetips test results to orchestrator/test-results/freetips.json`);
+        const saved = saveTestResults("freetips", normalized, { date: todayIso, scrapedAt: stamp });
+        console.log(`Saved ${saved.count} current-day tips to ${saved.targetFile}.`);
+        console.log(`Dated dump now contains ${saved.dumpCount} cumulative tips: ${saved.exportFile}`);
 
         // Run the test suite so the orchestrator validates the saved snapshot.
         try {
