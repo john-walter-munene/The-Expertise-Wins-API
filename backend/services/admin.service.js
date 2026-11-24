@@ -114,6 +114,131 @@ const parsePagination = (query = {}) => {
   return { page, limit, skip: (page - 1) * limit };
 };
 
+// Identifier format shared by Prisma cuid() primary keys. Route validation
+// checks this first; the service checks again so direct calls (tests, jobs,
+// future internal callers) cannot reach Prisma with a malformed id.
+const OBJECT_ID_PATTERN = /^c[0-9a-z]{6,40}$/;
+
+const isObjectId = (value) => typeof value === "string" && OBJECT_ID_PATTERN.test(value);
+
+const assertObjectId = (value, label = "ID") => {
+  if (!isObjectId(value)) throw createError(`Invalid ${label} format.`, 400);
+  return value;
+};
+
+// Largest bulk operation accepted in one request
+const MAX_BULK_IDS = 100;
+
+// Largest number of access tokens minted in one bulk request
+const MAX_BULK_TOKEN_COUNT = 100;
+
+// Access token lifetime bounds, in days
+const MIN_TOKEN_DAYS = 1;
+const MAX_TOKEN_DAYS = 365;
+
+// Outcomes an admin may settle a tip to
+const VALID_SETTLE_OUTCOMES = ["WON", "LOST", "VOID", "PUSH", "HALF_WON", "HALF_LOST", "CANCELLED"];
+
+// Outcome -> the only status it may move a tip to
+const OUTCOME_TARGET_STATUS = {
+  WON: "SETTLED",
+  LOST: "SETTLED",
+  PUSH: "SETTLED",
+  HALF_WON: "SETTLED",
+  HALF_LOST: "SETTLED",
+  VOID: "SETTLED",
+  CANCELLED: "CANCELLED",
+};
+
+// Settlement is a one-way state transition. A tip that is already settled may
+// only be re-settled to the very same outcome, which is how an idempotent
+// retry is recognised; any other change is a double-payment risk and is
+// rejected before the database is touched. Cancelled tips are final.
+const assertSettlementTransition = (tip, outcome) => {
+  if (!VALID_SETTLE_OUTCOMES.includes(outcome)) {
+    throw createError("Invalid tip outcome.", 400);
+  }
+  if (!tip) throw createError("Tip not found.", 404);
+
+  const currentOutcome = String(tip.outcome || "PENDING").toUpperCase();
+  const currentStatus = String(tip.status || "PENDING").toUpperCase();
+  const alreadyFinal =
+    currentStatus === "CANCELLED" ||
+    currentStatus === "SETTLED" ||
+    VALID_SETTLE_OUTCOMES.includes(currentOutcome);
+
+  // Nothing to change: the caller is retrying an already-applied settlement.
+  if (!alreadyFinal) return true;
+
+  // Replaying the exact same settlement is safe and keeps the original
+  // settledAt untouched; the record is simply acknowledged.
+  if (currentOutcome === outcome && currentStatus === OUTCOME_TARGET_STATUS[outcome]) return false;
+
+  if (currentStatus === "CANCELLED" || currentOutcome === "CANCELLED") {
+    throw createError("A cancelled tip cannot be settled again.", 409);
+  }
+
+  throw createError("This tip is already settled. Re-settling to a different outcome is not allowed.", 409);
+};
+
+// Cancel is the only terminal transition an admin may start from any live
+// state; a cancelled or settled record must not be overwritten.
+const assertNotFinalTip = (tip) => {
+  if (!tip) throw createError("Tip not found.", 404);
+  const currentOutcome = String(tip.outcome || "PENDING").toUpperCase();
+  const currentStatus = String(tip.status || "PENDING").toUpperCase();
+  if (currentStatus === "CANCELLED" || currentOutcome === "CANCELLED") {
+    throw createError("This tip is already cancelled.", 409);
+  }
+  if (currentStatus === "SETTLED" || VALID_SETTLE_OUTCOMES.includes(currentOutcome)) {
+    throw createError("A settled tip cannot be cancelled or deleted.", 409);
+  }
+  return true;
+};
+
+// In-memory idempotency keys for settlement requests. A replayed request with
+// the same key returns the original response instead of settling twice. Entries
+// expire after IDEMPOTENCY_TTL_MS and the map is bounded in size.
+const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_IDEMPOTENCY_ENTRIES = 5000;
+const settlementIdempotencyKeys = new Map();
+
+const normaliseIdempotencyKey = (key) => {
+  if (key === undefined || key === null) return null;
+  const value = String(key).trim();
+  if (!value) return null;
+  if (value.length < 8 || value.length > 128) {
+    throw createError("Idempotency key must be between 8 and 128 characters.", 400);
+  }
+  return value;
+};
+
+const getIdempotentSettlement = (key) => {
+  if (!key) return null;
+  const entry = settlementIdempotencyKeys.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.storedAt > IDEMPOTENCY_TTL_MS) {
+    settlementIdempotencyKeys.delete(key);
+    return null;
+  }
+  return entry.response;
+};
+
+const storeIdempotentSettlement = (key, response) => {
+  if (!key) return;
+  const now = Date.now();
+  if (settlementIdempotencyKeys.size >= MAX_IDEMPOTENCY_ENTRIES) {
+    for (const [storedKey, entry] of settlementIdempotencyKeys) {
+      if (now - entry.storedAt > IDEMPOTENCY_TTL_MS) settlementIdempotencyKeys.delete(storedKey);
+    }
+    // Still full: drop the oldest entry so the map stays bounded.
+    while (settlementIdempotencyKeys.size >= MAX_IDEMPOTENCY_ENTRIES) {
+      settlementIdempotencyKeys.delete(settlementIdempotencyKeys.keys().next().value);
+    }
+  }
+  settlementIdempotencyKeys.set(key, { storedAt: now, response });
+};
+
 const getBusinessDayKey = (timestamp = Date.now()) =>
   new Date(timestamp + BUSINESS_UTC_OFFSET_MS).toISOString().slice(0, 10);
 
@@ -156,6 +281,7 @@ const getUsers = async (query = {}) => {
 
 // Get a single user with their access tokens
 const getUserById = async (userId) => {
+  assertObjectId(userId, "user ID");
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -170,8 +296,35 @@ const getUserById = async (userId) => {
   return user;
 };
 
+// Refuse any change that would leave the application without a usable admin.
+// `nextRole`/`nextStatus` are the values the target user would have after the
+// change; when a field is unchanged the caller passes the current value.
+const assertLastAdminGuard = async (userId, nextRole, nextStatus) => {
+  const existing = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true, status: true },
+  });
+  if (!existing) throw createError("User not found.", 404);
+
+  const resolvedRole = nextRole ?? existing.role;
+  const resolvedStatus = nextStatus ?? existing.status;
+
+  // Only an active admin losing that standing can reduce the admin count
+  const wasActiveAdmin = existing.role === "ADMIN" && existing.status === "ACTIVE";
+  const staysActiveAdmin = resolvedRole === "ADMIN" && resolvedStatus === "ACTIVE";
+  if (!wasActiveAdmin || staysActiveAdmin) return;
+
+  const remainingAdmins = await prisma.user.count({
+    where: { role: "ADMIN", status: "ACTIVE", NOT: { id: userId } },
+  });
+  if (remainingAdmins < 1) {
+    throw createError("At least one active admin account must remain.", 400);
+  }
+};
+
 // Update allowed user fields and check unique values first
 const updateUser = async (userId, userData = {}, actorId) => {
+  assertObjectId(userId, "user ID");
   await requireActiveAdmin(actorId);
   const allowedFields = ["email", "username", "firstName", "lastName", "telegramUsername", "telegramUserId", "role", "status"];
   const data = {};
@@ -179,6 +332,11 @@ const updateUser = async (userId, userData = {}, actorId) => {
     if (userData[field] !== undefined) data[field] = userData[field];
   }
   if (Object.keys(data).length === 0) throw createError("No user fields provided for update.");
+
+  // Role/status changes can demote or lock out the last admin
+  if (data.role !== undefined || data.status !== undefined) {
+    await assertLastAdminGuard(userId, data.role, data.status);
+  }
 
   // Build conflict checks only for unique fields being changed
   const uniqueChecks = [
@@ -201,9 +359,11 @@ const updateUser = async (userId, userData = {}, actorId) => {
 
 // Update a user's status after validating it
 const updateUserStatus = async (userId, status, actorId) => {
+  assertObjectId(userId, "user ID");
   await requireActiveAdmin(actorId);
   const validStatuses = ["ACTIVE", "SUSPENDED", "BANNED", "PENDING"];
   if (!validStatuses.includes(status)) throw createError("Invalid user status.");
+  if (status !== "ACTIVE") await assertLastAdminGuard(userId, undefined, status);
   const user = await prisma.user.update({ where: { id: userId }, data: { status }, select: USER_SELECT });
   return user;
 };
@@ -213,6 +373,7 @@ const updateUserStatus = async (userId, status, actorId) => {
 // events referencing them are detached first so the delete cannot trip a
 // foreign-key constraint. Admins cannot delete their own account.
 const deleteUser = async (userId, actorId) => {
+  assertObjectId(userId, "user ID");
   await requireActiveAdmin(actorId);
 
   if (userId === actorId) {
@@ -221,9 +382,19 @@ const deleteUser = async (userId, actorId) => {
 
   const existing = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true },
+    select: { id: true, role: true, status: true },
   });
   if (!existing) throw createError("User not found.", 404);
+
+  // Deleting the last active admin would lock every administrator out
+  if (existing.role === "ADMIN" && existing.status === "ACTIVE") {
+    const remainingAdmins = await prisma.user.count({
+      where: { role: "ADMIN", status: "ACTIVE", NOT: { id: userId } },
+    });
+    if (remainingAdmins < 1) {
+      throw createError("At least one active admin account must remain.", 400);
+    }
+  }
 
   await prisma.$transaction([
     // Tokens are issued to one owner; keep the audit record but release the link.
@@ -335,6 +506,7 @@ const getTips = async (query = {}) => {
 
 // Get a single tip with its product publications
 const getTipById = async (tipId) => {
+  assertObjectId(tipId, "tip ID");
   const tip = await prisma.tip.findUnique({
     where: { id: tipId },
     select: {
@@ -348,6 +520,7 @@ const getTipById = async (tipId) => {
 
 // Update allowed tip fields
 const updateTip = async (tipId, tipData = {}, actorId) => {
+  assertObjectId(tipId, "tip ID");
   await requireActiveAdmin(actorId);
   const allowedFields = [
     "source",
@@ -385,9 +558,18 @@ const updateTip = async (tipId, tipData = {}, actorId) => {
   return prisma.tip.update({ where: { id: tipId }, data, select: TIP_SELECT });
 };
 
-// Soft delete a tip by marking it cancelled
+// Soft delete a tip by marking it cancelled. Cancelled and settled tips are
+// final record: deleting them again is refused so a settled result can never
+// be silently overwritten.
 const deleteTip = async (tipId, actorId) => {
+  assertObjectId(tipId, "tip ID");
   await requireActiveAdmin(actorId);
+  const existing = await prisma.tip.findUnique({
+    where: { id: tipId },
+    select: { id: true, status: true },
+  });
+  if (!existing) throw createError("Tip not found.", 404);
+  assertNotFinalTip(existing);
   return prisma.tip.update({
     where: { id: tipId },
     data: { status: "CANCELLED", outcome: "CANCELLED", settledAt: new Date() },
@@ -395,10 +577,16 @@ const deleteTip = async (tipId, actorId) => {
   });
 };
 
-// Validate a list of tip ids and remove duplicates
+// Validate a list of tip ids and remove duplicates. The list is bounded so a
+// single bulk request cannot lock the database with tens of thousands of ids.
 const validateTipIds = (ids) => {
   if (!Array.isArray(ids) || ids.length === 0) throw createError("At least one tip ID is required.");
-  return [...new Set(ids)];
+  if (ids.length > MAX_BULK_IDS) {
+    throw createError(`No more than ${MAX_BULK_IDS} tip IDs may be sent per request.`, 400);
+  }
+  const unique = [...new Set(ids)];
+  for (const id of unique) assertObjectId(id, "tip ID");
+  return unique;
 };
 
 // Update allowed fields on many tips
@@ -415,9 +603,17 @@ const updateTipsBulk = async (ids, data, actorId) => {
   return { message: "Tips updated successfully.", updated: result.count };
 };
 
-// Publish a single tip and record who published it
+// Publish a single tip and record who published it. A cancelled or settled tip
+// keeps its final state.
 const publishTip = async (tipId, userId, actorId = userId) => {
+  assertObjectId(tipId, "tip ID");
   await requireActiveAdmin(actorId);
+  const existing = await prisma.tip.findUnique({
+    where: { id: tipId },
+    select: { id: true, status: true, outcome: true },
+  });
+  if (!existing) throw createError("Tip not found.", 404);
+  if (existing.status === "CANCELLED") throw createError("A cancelled tip cannot be published.", 409);
   return prisma.tip.update({
     where: { id: tipId },
     data: { status: "PUBLISHED", publishedAt: new Date(), publishedById: userId },
@@ -431,7 +627,7 @@ const publishTipsBulk = async (ids, userId, actorId = userId) => {
   const tipIds = validateTipIds(ids);
   const publishedAt = new Date();
   const result = await prisma.tip.updateMany({
-    where: { id: { in: tipIds } },
+    where: { id: { in: tipIds }, status: { not: "CANCELLED" } },
     data: { status: "PUBLISHED", publishedAt, publishedById: userId },
   });
   return { message: "Tips published successfully.", updated: result.count };
@@ -439,6 +635,7 @@ const publishTipsBulk = async (ids, userId, actorId = userId) => {
 
 // Unpublish a single tip by locking it
 const unpublishTip = async (tipId, actorId) => {
+  assertObjectId(tipId, "tip ID");
   await requireActiveAdmin(actorId);
   return prisma.tip.update({ where: { id: tipId }, data: { status: "LOCKED" }, select: TIP_SELECT });
 };
@@ -451,22 +648,38 @@ const unpublishTipsBulk = async (ids, actorId) => {
   return { message: "Tips unpublished successfully.", updated: result.count };
 };
 
-// Settle a single tip with a validated outcome
-const settleTip = async (tipId, outcome, result, actorId, selectionOutcomes) => {
+// Settle a single tip with a validated outcome. Enum validation and the
+// state-machine guard run before anything is written, and an optional
+// idempotency key replays the original response instead of settling twice.
+const settleTip = async (tipId, outcome, result, actorId, selectionOutcomes, idempotencyKey) => {
+  assertObjectId(tipId, "tip ID");
   await requireActiveAdmin(actorId);
-  const validOutcomes = ["WON", "LOST", "VOID", "PUSH", "HALF_WON", "HALF_LOST", "CANCELLED"];
-  if (!validOutcomes.includes(outcome)) throw createError("Invalid tip outcome.");
+  const key = normaliseIdempotencyKey(idempotencyKey);
+
+  const replay = getIdempotentSettlement(key);
+  if (replay) return replay;
+
+  if (!VALID_SETTLE_OUTCOMES.includes(outcome)) throw createError("Invalid tip outcome.");
+
+  const currentTip = await prisma.tip.findUnique({
+    where: { id: tipId },
+    select: { id: true, status: true, outcome: true, tips: true },
+  });
+  if (!currentTip) throw createError("Tip not found.", 404);
+
+  // Settled/cancelled tips can only be replayed with the identical outcome
+  if (!assertSettlementTransition(currentTip, outcome)) {
+    const unchanged = await prisma.tip.findUnique({ where: { id: tipId }, select: TIP_SELECT });
+    storeIdempotentSettlement(key, unchanged);
+    return unchanged;
+  }
+
   const data = { status: "SETTLED", outcome, result: result ?? null, settledAt: new Date() };
 
   if (selectionOutcomes !== undefined) {
     if (!Array.isArray(selectionOutcomes)) {
       throw createError("Selection outcomes must be an array.");
     }
-    const currentTip = await prisma.tip.findUnique({
-      where: { id: tipId },
-      select: { tips: true },
-    });
-    if (!currentTip) throw createError("Tip not found.", 404);
     if (!Array.isArray(currentTip.tips) || selectionOutcomes.length !== currentTip.tips.length) {
       throw createError("Provide one outcome for each selection in this tip.");
     }
@@ -476,40 +689,55 @@ const settleTip = async (tipId, outcome, result, actorId, selectionOutcomes) => 
         throw createError("Tip selections must be valid objects before they can be settled.");
       }
       const selectionOutcome = String(selectionOutcomes[index] || "").toUpperCase();
-      if (!validOutcomes.includes(selectionOutcome)) {
+      if (!VALID_SETTLE_OUTCOMES.includes(selectionOutcome)) {
         throw createError(`Invalid outcome for selection ${index + 1}.`);
       }
       return { ...selection, outcome: selectionOutcome };
     });
   }
 
-  return prisma.tip.update({
+  const settledTip = await prisma.tip.update({
     where: { id: tipId },
     data,
     select: TIP_SELECT,
   });
+
+  storeIdempotentSettlement(key, settledTip);
+  return settledTip;
 };
 
 // Settle many tips with a validated outcome. A tip can hold several nested
 // selections, and the nested `tips[].outcome` is what statistics read. Writing
 // only the parent row would leave every selection on its old outcome, so a
 // bulk WON would still be scored as a loss in profit and ROI. Settle the parent
-// and every nested selection together, exactly like the single-tip path.
-const settleTipsBulk = async (ids, outcome, result, actorId) => {
+// and every nested selection together, exactly like the single-tip path, and
+// skip any tip that is already settled so a replay is idempotent.
+const settleTipsBulk = async (ids, outcome, result, actorId, idempotencyKey) => {
   await requireActiveAdmin(actorId);
   const tipIds = validateTipIds(ids);
-  const validOutcomes = ["WON", "LOST", "VOID", "PUSH", "HALF_WON", "HALF_LOST", "CANCELLED"];
-  if (!validOutcomes.includes(outcome)) throw createError("Invalid tip outcome.");
+  if (!VALID_SETTLE_OUTCOMES.includes(outcome)) throw createError("Invalid tip outcome.");
   if (!tipIds.length) return { message: "Tips settled successfully.", updated: 0 };
+
+  const key = normaliseIdempotencyKey(idempotencyKey);
+  const replay = getIdempotentSettlement(key);
+  if (replay) return replay;
 
   const tips = await prisma.tip.findMany({
     where: { id: { in: tipIds } },
-    select: { id: true, tips: true },
+    select: { id: true, status: true, outcome: true, tips: true },
+  });
+
+  // A bulk settlement skips tips that are already final; it never rewrites a
+  // different settled outcome in bulk. `result` is validated outside the guard
+  // so a legacy `null` placeholder is still accepted.
+  const settleable = tips.filter((tip) => {
+    if (!VALID_SETTLE_OUTCOMES.includes(outcome)) return false;
+    return assertSettlementTransition(tip, outcome);
   });
 
   const settledAt = new Date();
   await prisma.$transaction(
-    tips.map((tip) => {
+    settleable.map((tip) => {
       const updateData = { status: "SETTLED", outcome, settledAt };
       if (result !== undefined) updateData.result = result;
 
@@ -526,12 +754,21 @@ const settleTipsBulk = async (ids, outcome, result, actorId) => {
     })
   );
 
-  return { message: "Tips settled successfully.", updated: tips.length };
+  const response = { message: "Tips settled successfully.", updated: settleable.length };
+  storeIdempotentSettlement(key, response);
+  return response;
 };
 
-// Cancel a single tip
+// Cancel a single tip. Settled and already-cancelled tips are final.
 const cancelTip = async (tipId, actorId) => {
+  assertObjectId(tipId, "tip ID");
   await requireActiveAdmin(actorId);
+  const existing = await prisma.tip.findUnique({
+    where: { id: tipId },
+    select: { id: true, status: true, outcome: true },
+  });
+  if (!existing) throw createError("Tip not found.", 404);
+  assertNotFinalTip(existing);
   return prisma.tip.update({
     where: { id: tipId },
     data: { status: "CANCELLED", outcome: "CANCELLED", settledAt: new Date() },
@@ -539,16 +776,26 @@ const cancelTip = async (tipId, actorId) => {
   });
 };
 
-// Cancel many tips
+// Cancel many tips. Only live tips are cancelled; settled and cancelled rows
+// keep their final state.
 const cancelTipsBulk = async (ids, actorId) => {
   await requireActiveAdmin(actorId);
   const tipIds = validateTipIds(ids);
-  const result = await prisma.tip.updateMany({ where: { id: { in: tipIds } }, data: { status: "CANCELLED", outcome: "CANCELLED", settledAt: new Date() } });
+  const result = await prisma.tip.updateMany({
+    where: {
+      id: { in: tipIds },
+      status: { notIn: ["SETTLED", "CANCELLED"] },
+      outcome: { notIn: VALID_SETTLE_OUTCOMES },
+    },
+    data: { status: "CANCELLED", outcome: "CANCELLED", settledAt: new Date() },
+  });
   return { message: "Tips cancelled successfully.", updated: result.count };
 };
 
 // Publish a tip to an active product, creating or reviving the publication
 const publishTipToProduct = async (tipId, productId, actorId) => {
+  assertObjectId(tipId, "tip ID");
+  assertObjectId(productId, "product ID");
   await requireActiveAdmin(actorId);
   const [tip, product] = await Promise.all([
     prisma.tip.findUnique({ where: { id: tipId }, select: { id: true } }),
@@ -567,6 +814,8 @@ const publishTipToProduct = async (tipId, productId, actorId) => {
 
 // Mark a tip publication as unpublished
 const removeTipPublication = async (tipId, productId, actorId) => {
+  assertObjectId(tipId, "tip ID");
+  assertObjectId(productId, "product ID");
   await requireActiveAdmin(actorId);
   const publication = await prisma.tipPublication.findUnique({ where: { tipId_productId: { tipId, productId } } });
   if (!publication) throw createError("Tip publication not found.", 404);
@@ -609,6 +858,41 @@ const parseExpiry = (expiresAt) => {
   return date;
 };
 
+// Clamp a requested token lifetime to the supported 1–365 day window so a
+// caller can never mint a token that expires in decades.
+const clampTokenDays = (days) => {
+  const numberOfDays = Number.parseInt(days, 10);
+  if (!Number.isInteger(numberOfDays)) {
+    throw createError(`Days must be a whole number between ${MIN_TOKEN_DAYS} and ${MAX_TOKEN_DAYS}.`, 400);
+  }
+  if (numberOfDays < MIN_TOKEN_DAYS || numberOfDays > MAX_TOKEN_DAYS) {
+    throw createError(`Days must be between ${MIN_TOKEN_DAYS} and ${MAX_TOKEN_DAYS}.`, 400);
+  }
+  return numberOfDays;
+};
+
+// Add days to a base date
+const addTokenDays = (baseDate, numberOfDays) => {
+  const next = new Date(baseDate);
+  next.setDate(next.getDate() + numberOfDays);
+  return next;
+};
+
+// Resolve and clamp the expiry supplied when a token is created. A lifetime is
+// accepted only inside the 1–365 day window.
+const resolveTokenExpiry = (expiresAt) => {
+  const parsed = parseExpiry(expiresAt);
+  if (!parsed) return null;
+  const now = new Date();
+  const days = (parsed.getTime() - now.getTime()) / (24 * 60 * 60 * 1000);
+  if (days < MIN_TOKEN_DAYS || days > MAX_TOKEN_DAYS) {
+    throw createError(`Token expiry must be between ${MIN_TOKEN_DAYS} and ${MAX_TOKEN_DAYS} days from now.`, 400);
+  }
+  return parsed;
+};
+
+const isExpiredToken = (accessToken) => Boolean(accessToken.expiresAt && accessToken.expiresAt <= new Date());
+
 // Resolve the registered user an access token is being issued to. Tokens are
 // only ever minted by an admin for a specific, active, registered account so
 // that every token has exactly one owner and access cannot be transferred.
@@ -635,7 +919,7 @@ const resolveAssignedUser = async (assignedUserId) => {
 const createAccessToken = async (tokenData = {}, actorId) => {
   await requireActiveAdmin(actorId);
   const { productId, expiresAt, notes, assignedUserId } = tokenData;
-  if (!productId) throw createError("Product ID is required.");
+  assertObjectId(productId, "product ID");
   const product = await prisma.product.findUnique({ where: { id: productId }, select: { id: true, status: true } });
   if (!product) throw createError("Product not found.", 404);
   if (product.status !== "ACTIVE") throw createError("Cannot create a token for an inactive product.");
@@ -645,7 +929,7 @@ const createAccessToken = async (tokenData = {}, actorId) => {
   const rawToken = generateRawAccessToken();
   const tokenHash = hashAccessToken(rawToken);
   const accessToken = await prisma.accessToken.create({
-    data: { tokenHash, tokenPrefix: getTokenPrefix(rawToken), productId, assignedUserId: ownerId, expiresAt: parseExpiry(expiresAt), notes: notes ?? null },
+    data: { tokenHash, tokenPrefix: getTokenPrefix(rawToken), productId, assignedUserId: ownerId, expiresAt: resolveTokenExpiry(expiresAt), notes: notes ?? null },
     select: ACCESS_TOKEN_SELECT,
   });
   return { token: rawToken, accessToken: formatAccessToken(accessToken) };
@@ -657,15 +941,17 @@ const createAccessTokensBulk = async (tokenData = {}, actorId) => {
   await requireActiveAdmin(actorId);
   const { productId, count, expiresAt, notes, assignedUserId } = tokenData;
   const tokenCount = Number.parseInt(count, 10);
-  if (!productId) throw createError("Product ID is required.");
-  if (!Number.isInteger(tokenCount) || tokenCount < 1 || tokenCount > 1000) throw createError("Token count must be between 1 and 1000.");
+  assertObjectId(productId, "product ID");
+  if (!Number.isInteger(tokenCount) || tokenCount < 1 || tokenCount > MAX_BULK_TOKEN_COUNT) {
+    throw createError(`Token count must be between 1 and ${MAX_BULK_TOKEN_COUNT}.`);
+  }
   const product = await prisma.product.findUnique({ where: { id: productId }, select: { id: true, status: true } });
   if (!product) throw createError("Product not found.", 404);
   if (product.status !== "ACTIVE") throw createError("Cannot create tokens for an inactive product.");
 
   const ownerId = await resolveAssignedUser(assignedUserId);
 
-  const parsedExpiry = parseExpiry(expiresAt);
+  const parsedExpiry = resolveTokenExpiry(expiresAt);
   const tokens = [];
   for (let i = 0; i < tokenCount; i++) {
     const rawToken = generateRawAccessToken();
@@ -693,6 +979,7 @@ const getAccessTokens = async (query = {}) => {
 
 // Get a single access token by id
 const getAccessTokenById = async (accessTokenId) => {
+  assertObjectId(accessTokenId, "access token ID");
   const accessToken = await prisma.accessToken.findUnique({ where: { id: accessTokenId }, select: ACCESS_TOKEN_SELECT });
   if (!accessToken) throw createError("Access token not found.", 404);
   return formatAccessToken(accessToken);
@@ -702,6 +989,7 @@ const getAccessTokenById = async (accessTokenId) => {
 // reassignable here: a token always belongs to the user it was issued to, so
 // ownership can only be fixed at creation time.
 const updateAccessToken = async (accessTokenId, tokenData = {}, actorId) => {
+  assertObjectId(accessTokenId, "access token ID");
   await requireActiveAdmin(actorId);
   if (tokenData.assignedUserId !== undefined) {
     throw createError("An access token cannot be reassigned to a different user.", 400);
@@ -716,12 +1004,38 @@ const updateAccessToken = async (accessTokenId, tokenData = {}, actorId) => {
     if (tokenData[field] !== undefined) data[field] = field === "expiresAt" ? parseExpiry(tokenData[field]) : tokenData[field];
   }
   if (Object.keys(data).length === 0) throw createError("No access token fields provided for update.");
+
+  const existing = await prisma.accessToken.findUnique({
+    where: { id: accessTokenId },
+    select: { id: true, status: true, expiresAt: true, usedAt: true },
+  });
+  if (!existing) throw createError("Access token not found.", 404);
+
+  // A revoked or already-used token is final: it may be annotated or deleted,
+  // but never re-activated, extended, or given a new expiry.
+  const isFinal = existing.status === "REVOKED" || Boolean(existing.usedAt);
+  if (isFinal) {
+    if (data.status !== undefined && data.status !== existing.status) {
+      throw createError("A revoked or used access token cannot be reactivated.", 409);
+    }
+    if (data.expiresAt !== undefined) {
+      throw createError("A revoked or used access token cannot be extended.", 409);
+    }
+    delete data.status;
+  }
+  if (data.expiresAt !== undefined) {
+    if (existing.expiresAt && existing.expiresAt <= new Date() && existing.status !== "ACTIVE") {
+      throw createError("An expired or inactive access token cannot be extended.", 409);
+    }
+  }
+
   const accessToken = await prisma.accessToken.update({ where: { id: accessTokenId }, data, select: ACCESS_TOKEN_SELECT });
   return formatAccessToken(accessToken);
 };
 
 // Revoke an access token
 const revokeAccessToken = async (accessTokenId, actorId) => {
+  assertObjectId(accessTokenId, "access token ID");
   await requireActiveAdmin(actorId);
   const accessToken = await prisma.accessToken.update({ where: { id: accessTokenId }, data: { status: "REVOKED" }, select: ACCESS_TOKEN_SELECT });
   return formatAccessToken(accessToken);
@@ -730,6 +1044,7 @@ const revokeAccessToken = async (accessTokenId, actorId) => {
 // Permanently delete an access token. This is distinct from revocation, which
 // preserves the token record for audit/history purposes.
 const deleteAccessToken = async (accessTokenId, actorId) => {
+  assertObjectId(accessTokenId, "access token ID");
   await requireActiveAdmin(actorId);
   const existing = await prisma.accessToken.findUnique({ where: { id: accessTokenId }, select: { id: true } });
   if (!existing) throw createError("Access token not found.", 404);
@@ -737,18 +1052,21 @@ const deleteAccessToken = async (accessTokenId, actorId) => {
   return { message: "Access token deleted successfully.", id: accessTokenId };
 };
 
-// Extend an access token from its current expiry or from now
+// Extend an access token from its current expiry or from now. The extension is
+// clamped to 1–365 days and a revoked or expired token is never revived.
 const extendAccessToken = async (accessTokenId, days, actorId) => {
+  assertObjectId(accessTokenId, "access token ID");
   await requireActiveAdmin(actorId);
-  const numberOfDays = Number.parseInt(days, 10);
-  if (!Number.isInteger(numberOfDays) || numberOfDays <= 0) throw createError("Days must be a positive integer.");
+  const numberOfDays = clampTokenDays(days);
   const accessToken = await prisma.accessToken.findUnique({ where: { id: accessTokenId }, select: { id: true, status: true, expiresAt: true } });
   if (!accessToken) throw createError("Access token not found.", 404);
-  if (accessToken.status === "REVOKED") throw createError("Cannot extend a revoked access token.");
+  if (accessToken.status === "REVOKED") throw createError("Cannot extend a revoked access token.", 409);
+  if (accessToken.status === "EXPIRED" || isExpiredToken(accessToken)) {
+    throw createError("Cannot extend an expired access token. Issue a new one.", 409);
+  }
   const now = new Date();
   const baseDate = accessToken.expiresAt && accessToken.expiresAt > now ? accessToken.expiresAt : now;
-  const newExpiry = new Date(baseDate);
-  newExpiry.setDate(newExpiry.getDate() + numberOfDays);
+  const newExpiry = addTokenDays(baseDate, numberOfDays);
   const updated = await prisma.accessToken.update({
     where: { id: accessTokenId },
     data: { expiresAt: newExpiry, status: "ACTIVE" },
@@ -778,6 +1096,7 @@ const getProducts = async (query = {}) => {
 
 // Get a single product with token and publication counts
 const getProductById = async (productId) => {
+  assertObjectId(productId, "product ID");
   const product = await prisma.product.findUnique({
     where: { id: productId },
     select: { ...PRODUCT_SELECT, _count: { select: { accessTokens: true, publications: true } } },
@@ -788,6 +1107,7 @@ const getProductById = async (productId) => {
 
 // Update allowed product fields
 const updateProduct = async (productId, productData = {}, actorId) => {
+  assertObjectId(productId, "product ID");
   await requireActiveAdmin(actorId);
   const allowedFields = ["name", "slug", "description", "type", "status", "isPublic"];
   const data = {};
@@ -800,6 +1120,7 @@ const updateProduct = async (productId, productData = {}, actorId) => {
 
 // Update a product's status after validating it
 const updateProductStatus = async (productId, status, actorId) => {
+  assertObjectId(productId, "product ID");
   await requireActiveAdmin(actorId);
   const validStatuses = ["ACTIVE", "INACTIVE", "ARCHIVED"];
   if (!validStatuses.includes(status)) throw createError("Invalid product status.");

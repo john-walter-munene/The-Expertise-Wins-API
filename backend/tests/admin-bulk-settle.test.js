@@ -42,17 +42,17 @@ function loadAdminService(existingTips) {
 
 test("bulk settle writes the nested selection outcomes, not just the parent", async () => {
   const existingTips = [
-    { id: "tip-1", tips: [{ selection: "A", odds: 2.7, outcome: "LOST" }, { selection: "B", odds: 1.5, outcome: "LOST" }] },
-    { id: "tip-2", tips: [] },
+    { id: "ctip000001", status: "PENDING", outcome: "PENDING", tips: [{ selection: "A", odds: 2.7, outcome: "LOST" }, { selection: "B", odds: 1.5, outcome: "LOST" }] },
+    { id: "ctip000002", status: "PENDING", outcome: "PENDING", tips: [] },
   ];
   const { service, updates } = loadAdminService(existingTips);
 
-  const result = await service.settleTipsBulk(["tip-1", "tip-2"], "WON", "Settled by admin.", "admin-1");
+  const result = await service.settleTipsBulk(["ctip000001", "ctip000002"], "WON", "Settled by admin.", "admin-1");
 
   assert.equal(result.updated, 2);
   assert.equal(updates.length, 2);
 
-  const tip1 = updates.find((u) => u.id === "tip-1");
+  const tip1 = updates.find((u) => u.id === "ctip000001");
   assert.equal(tip1.data.outcome, "WON", "parent outcome is set");
   assert.equal(tip1.data.status, "SETTLED");
   assert.deepEqual(
@@ -63,15 +63,15 @@ test("bulk settle writes the nested selection outcomes, not just the parent", as
   // Selection source fields must survive the update.
   assert.equal(tip1.data.tips[0].odds, 2.7);
 
-  const tip2 = updates.find((u) => u.id === "tip-2");
+  const tip2 = updates.find((u) => u.id === "ctip000002");
   assert.equal(tip2.data.tips, undefined, "a tip with no selections must not gain a tips array");
 });
 
 test("bulk settle rejects an invalid outcome before touching the database", async () => {
-  const { service, updates } = loadAdminService([{ id: "tip-1", tips: [] }]);
+  const { service, updates } = loadAdminService([{ id: "ctip000001", status: "PENDING", outcome: "PENDING", tips: [] }]);
 
   await assert.rejects(
-    service.settleTipsBulk(["tip-1"], "MAYBE", null, "admin-1"),
+    service.settleTipsBulk(["ctip000001"], "MAYBE", null, "admin-1"),
     (error) => error.status === 400
   );
   assert.equal(updates.length, 0, "no writes happen for an invalid outcome");

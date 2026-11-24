@@ -21,7 +21,7 @@ The `backend` directory contains the Express API, Prisma schema, and historical-
 - **Framework**: Express.js
 - **Database ORM**: Prisma ORM with PostgreSQL
 - **Authentication**: Passport.js & JWT (`jsonwebtoken`)
-- **Validation**: Joi validation schemas
+- **Validation**: Joi validation schemas (auth payloads) and strict zod schemas (`backend/schemas/`) for admin and token routes
 
 ## 📡 API Route Architecture
 
@@ -32,7 +32,7 @@ The `backend` directory contains the Express API, Prisma schema, and historical-
 - `/api/subscriptions`: Active subscriptions, token redemption (`/redeem`, requires the assigned user to sign in), token verification, and subscription history.
 - `/api/admin`: Active-admin-only user, tip curation/publication, access-token, and product management. Admin user management supports role/status changes and permanent deletion (`DELETE /users/:id`). Tokens can be revoked (retain audit record) or permanently deleted. Routine daily tip settlement remains CLI dump → review → sync.
 
-Single-tip settlement is `POST /api/admin/tips/:id/settle` with `{ "outcome": "WON", "result": "2-1", "selectionOutcomes": ["WON", "VOID"] }`. `selectionOutcomes` is optional for older callers; when provided it must include one valid result per selection. Supported outcomes are `WON`, `HALF_WON`, `LOST`, `HALF_LOST`, `VOID`, `PUSH`, and `CANCELLED`. The admin UI lets the operator set each selection separately or copy the overall result to all selections before saving.
+Single-tip settlement is `POST /api/admin/tips/:id/settle` with `{ "outcome": "WON", "result": "2-1", "selectionOutcomes": ["WON", "VOID"] }`. `selectionOutcomes` is optional for older callers; when provided it must include one valid result per selection. Supported outcomes are `WON`, `HALF_WON`, `LOST`, `HALF_LOST`, `VOID`, `PUSH`, and `CANCELLED`. The admin UI lets the operator set each selection separately or copy the overall result to all selections before saving. Send an `Idempotency-Key` header to make a retried settlement replay the original response instead of settling twice; a tip that is already settled can only be replayed with the same outcome.
 
 ## Verification Status
 
@@ -48,7 +48,7 @@ The outcome totals above are a dated development snapshot only. Later scrapes an
 
 Access tokens are minted only by an admin and always belong to one registered account:
 
-- `POST /api/admin/subscription-tokens` and the bulk variant require both a product and an `assignedUserId`. The API rejects a missing user, an unknown user id, or a user whose status is not `ACTIVE`.
+- `POST /api/admin/subscription-tokens` and the bulk variant require both a product and an `assignedUserId`. The API rejects a missing user, an unknown user id, or a user whose status is not `ACTIVE`. Bulk creation is capped at 100 tokens and any supplied `expiresAt` must fall between 1 and 365 days from now.
 - `POST /api/subscriptions/redeem` requires authentication. Only the account a token was issued to can redeem it; a token assigned to someone else returns 403, and an unassigned token is rejected.
 - `PATCH /api/admin/subscription-tokens/:id` refuses to change `assignedUserId`, so access cannot be transferred after a token is created.
 - The raw token code is returned only in the create response; only a hash is stored.
@@ -75,6 +75,19 @@ Registration, login, and profile updates share one set of rules in `backend/midd
 
 The username rule previously rejected any non-alphanumeric character, which made names such as `expert_tipster` fail even though the registration form suggests that format. The rule now matches what the form offers. A duplicate email or username returns `409`; an invalid payload returns `400`.
 
+## Request validation and authorization guards
+
+Every protected route is validated and authorized before its controller runs.
+
+- **Router-level auth/RBAC**: `/api/admin` mounts `authenticate` + `requireRole("admin")` at the router level. `authenticate` (in `backend/middleware/authorize.js`) runs passport and then guarantees `req.user` exists and is active; a request that resolves no user is answered 401 by the guard itself, never handed to a handler. `/api/subscriptions` uses router-level `authenticate`; `/api/tips/vip`, `/api/tips/maxbet`, and authenticated routes on products/stats use it per route. User management, role changes and settlement also re-verify the actor inside the service, so direct service calls cannot bypass the route guard.
+- **Strict body schemas (no mass assignment)**: Admin and token bodies are parsed by strict zod schemas in `backend/schemas/`. Unknown keys are rejected with a 400, so `role`, `status`, `assignedUserId`, `createdById`, or a client-chosen `tokenHash` cannot be smuggled into a service. The controllers read the parsed value, and the services apply a second field allowlist before writing.
+- **Object-level checks (IDOR)**: Route ids are validated against the cuid format by `validateParams` and again in the service. A malformed id returns 400 before any Prisma call. Customer token routes are scoped by `assignedUserId`, so another user's access id resolves to 404. Admin users cannot delete their own account, and the last active admin cannot be deleted, demoted, or suspended.
+- **Bounded bulk operations**: Bulk tip routes accept at most 100 ids per request (duplicates removed, each id format-checked), and bulk token creation is capped at 100. Bulk settlement runs in one `$transaction` over that bounded set.
+- **Settlement state machine and idempotency**: `outcome` is a required enum. A tip may move to `SETTLED` only from a live state; an already-settled tip can only be replayed with the identical outcome, and a cancelled tip is final (settling, cancelling, or deleting it again is a 409 before any write). `POST /api/admin/tips/:id/settle` and `/tips/bulk/settle` accept an optional `Idempotency-Key` header (8–128 characters); a replay with the same key returns the original response instead of settling twice. Keys are held in memory with a 24-hour TTL and a bounded size.
+- **Token lifecycle**: Token creation accepts an expiry only inside a 1–365 day window, and extend/renew days are clamped to 1–365. Revoked or expired tokens can never be reactivated or extended; a new token must be issued.
+- **Query allowlists and pagination**: Admin list queries are validated by strict schemas with `limit` capped at 100 and only documented filters accepted (`page`, `limit`, `status`, `role`, and so on); unknown query parameters are rejected rather than forwarded to a where clause. Stats services read only the `period`/`product` filters through `pickStatsQuery`.
+- **Sanitized errors**: `backend/middleware/errorHandler.js` is the single failure path. Errors with an explicit 4xx status keep their client-facing message; Prisma `P2002`/`P2025`/validation errors map to a generic 409/404/400 without query or field meta; malformed JSON is a 400; everything else is logged server-side and returned as a generic 500. Stack traces, Prisma meta, SQL, and connection details never reach the client.
+
 ## Mutation and authorization rules
 - The public `/api/tips` router is read-only. Tip mutations are available only under `/api/admin/tips` and require an active admin JWT; AdminService independently verifies the actor before each mutation. The routine source-of-truth workflow is CLI dump → review → sync.
 - Every `/api/admin` route is protected by JWT authentication and the active-admin guard. AdminService mutation methods also require an actor id and independently verify the actor is an active `ADMIN`, so direct service calls cannot bypass the route guard.
@@ -85,7 +98,7 @@ The username rule previously rejected any non-alphanumeric character, which made
 - User deletion is permanent and distinct from suspension. `DELETE /api/admin/users/:id` requires an active admin, returns `404` for an unknown id, and returns `400` for the actor's own account. Before deleting, the service detaches the user's access tokens (`assignedUserId` set to null), usage events (`userId` set to null), and tips they created or published, all inside one transaction, so FK constraints cannot block the delete. Token, usage, and tip records are retained.
 
 ## Backend logic tests
-Run the backend service-logic checks in Docker with `docker compose run --rm --no-deps app npm run --prefix backend test`. These tests exercise service validation and decisions with mocked Prisma persistence; they do not require PostgreSQL and do not test Prisma itself. They cover active-admin authorization, tip mutation and settlement invariants, token ownership/hash behavior, revocation versus permanent deletion, and invalid/missing inputs. They are an MVP logic baseline, not full HTTP/database integration coverage.
+Run the backend service-logic checks in Docker with `docker compose run --rm --no-deps app npm run --prefix backend test`. These tests exercise service validation and decisions with mocked Prisma persistence; they do not require PostgreSQL and do not test Prisma itself. They cover active-admin authorization, tip mutation and settlement invariants, token ownership/hash behavior, revocation versus permanent deletion, invalid/missing inputs, router-level auth/RBAC wiring, strict schema rejection of unknown keys, id format checks and bounded bulk input, the settlement state machine and idempotency keys, token lifecycle bounds, query allowlists, and the sanitized error handler. They are an MVP logic baseline, not full HTTP/database integration coverage.
 
 ## Docker Database Setup
 

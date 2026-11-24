@@ -134,12 +134,18 @@ export default function AdminTipsPage() {
         }
       }
 
+      // `teams` is a form-only helper for the team input; the API schema is
+      // strict, so send only the fields the admin tip endpoint accepts.
+      const { teams: _teams, homeTeam: _homeTeam, awayTeam: _awayTeam, ...formFields } = createForm;
+
       await adminApi.createTip({
-        ...createForm,
+        ...formFields,
         source: createForm.source || "MANUAL",
         homeTeam: homeTeam || undefined,
         awayTeam: awayTeam || undefined,
         odds: Number(createForm.odds) || 1.85,
+        competition: createForm.competition || undefined,
+        kickoff: createForm.kickoff || undefined,
       });
       toast.success("Tip created successfully");
       setCreateModalOpen(false);

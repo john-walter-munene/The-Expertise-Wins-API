@@ -151,7 +151,7 @@ const unpublishTipsBulk = async (req, res, next) => {
 const settleTipsBulk = async (req, res, next) => {
   try {
     const { ids, outcome, result: resInfo } = req.body ?? {};
-    const result = await adminService.settleTipsBulk(ids, outcome, resInfo, req.user?.id);
+    const result = await adminService.settleTipsBulk(ids, outcome, resInfo, req.user?.id, req.idempotencyKey);
     res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -197,7 +197,7 @@ const settleTip = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { outcome, result: resInfo, selectionOutcomes } = req.body ?? {};
-    const tip = await adminService.settleTip(id, outcome, resInfo, req.user?.id, selectionOutcomes);
+    const tip = await adminService.settleTip(id, outcome, resInfo, req.user?.id, selectionOutcomes, req.idempotencyKey);
     res.status(200).json({ message: "Tip settled successfully.", tip });
   } catch (error) {
     next(error);

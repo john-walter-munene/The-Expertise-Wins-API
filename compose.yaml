@@ -1,10 +1,20 @@
-services:
+﻿services:
+  # Host ports are this project's own range, overridable from the environment:
+  #   web 3200 | api 3201 | db 5441   (DrillKe 3100/4100/5440, AppKings 3300/3301/5442)
+  # The container-side ports stay fixed. 
   app:
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
     working_dir: /workspace
-    command: ["npm", "run", "dev"]
+    command:
+      - sh
+      - -c
+      - |
+        if ! node -e "require.resolve('concurrently')" >/dev/null 2>&1; then
+          npm ci
+        fi
+        exec npm run dev
     init: true
     env_file:
       - ./backend/.env
@@ -17,16 +27,15 @@ services:
       - cli_node_modules:/workspace/cli/node_modules
       - frontend_next_cache:/workspace/frontend/.next
     environment:
-      # Override the host-facing URL from backend/.env only inside Docker.
-      DATABASE_URL: postgresql://tew:tew_local_dev@db:5432/expertise_wins?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tew}:${POSTGRES_PASSWORD:-tew_local_dev}@db:5432/${POSTGRES_DB:-expertise_wins}?schema=public
+      PORT: ${API_PORT:-3201}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:${WEB_PORT:-3200}}
+      HOSTNAME: 0.0.0.0
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
-      # Next.js must bind 0.0.0.0, not just the container loopback, for the
-      # published 3001 port to serve the frontend to the host.
-      HOSTNAME: 0.0.0.0
     ports:
-      - "3000:3000"
-      - "3001:3001"
+      - "${API_PORT:-3201}:${API_PORT:-3201}"
+      - "${WEB_PORT:-3200}:3001"
     depends_on:
       db:
         condition: service_healthy
@@ -38,10 +47,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-tew}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tew_local_dev}
     ports:
-      # Host 5432 is occupied by a local PostgreSQL 18 service; publish the
-      # container on 5433 so host clients connect to THIS database, not the
-      # local one.
-      - "5433:5432"
+      # Loopback only: nothing outside this machine needs the database port.
+      - "127.0.0.1:${DB_PORT:-5441}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

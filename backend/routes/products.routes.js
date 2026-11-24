@@ -1,7 +1,9 @@
 const { Router } = require("express");
 
 const productsController = require("../controllers/products.controller");
-const { authenticateJWT } = require("../middleware/authentication");
+const { authenticate } = require("../middleware/authorize");
+const { validateParams } = require("../middleware/validation");
+const { idParamsSchema } = require("../schemas/admin.schema");
 
 const productsRouter = Router();
 
@@ -18,9 +20,9 @@ productsRouter.get("/vip", productsController.getVipProduct);
 productsRouter.get("/maxbet", productsController.getMaxbetProduct);
 
 // List products the current user can access
-productsRouter.get("/my-access", authenticateJWT, productsController.getMyProducts);
+productsRouter.get("/my-access", authenticate, productsController.getMyProducts);
 
 // Get a single product by id, registered last so named routes match first
-productsRouter.get("/:id", productsController.getProductById);
+productsRouter.get("/:id", validateParams(idParamsSchema), productsController.getProductById);
 
 module.exports = productsRouter;

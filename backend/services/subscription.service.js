@@ -18,6 +18,21 @@ const createError = (message, statusCode = 400) => {
   return error;
 };
 
+// Bound every customer-initiated token extension to one year
+const MIN_RENEWAL_DAYS = 1;
+const MAX_RENEWAL_DAYS = 365;
+
+// Identifier format used by Prisma cuid() primary keys
+const OBJECT_ID_PATTERN = /^c[0-9a-z]{6,40}$/;
+
+// Validate the token id from the path before it reaches Prisma
+const assertAccessTokenId = (value) => {
+  if (typeof value !== "string" || !OBJECT_ID_PATTERN.test(value)) {
+    throw createError("Invalid access ID format.", 400);
+  }
+  return value;
+};
+
 // Hash an access token for lookup
 const hashAccessToken = (token) => {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -213,6 +228,7 @@ const getMyAccess = async (userId) => {
 
 // Cancel a user's active subscription by revoking its token
 const cancelSubscription = async (userId, accessTokenId) => {
+  assertAccessTokenId(accessTokenId);
   const accessToken = await prisma.accessToken.findFirst({
     where: { id: accessTokenId, assignedUserId: userId },
   });
@@ -229,8 +245,11 @@ const cancelSubscription = async (userId, accessTokenId) => {
   return { message: "Access cancelled successfully." };
 };
 
-// Extend a user's active subscription by a number of days
+// Extend a user's active subscription by a number of days. Days are clamped to
+// 1–365, and a revoked, used or already-expired token is never revived: the
+// account must be issued a new token instead.
 const renewSubscription = async (userId, accessTokenId, renewalData = {}) => {
+  assertAccessTokenId(accessTokenId);
   const accessToken = await prisma.accessToken.findFirst({
     where: { id: accessTokenId, assignedUserId: userId },
     include: { product: { select: PRODUCT_SUMMARY_SELECT } },
@@ -242,10 +261,15 @@ const renewSubscription = async (userId, accessTokenId, renewalData = {}) => {
 
   const days = Number.parseInt(renewalData.days, 10);
 
-  if (!days || days <= 0) throw createError("Renewal days must be greater than zero.", 400);
+  if (!Number.isInteger(days) || days < MIN_RENEWAL_DAYS || days > MAX_RENEWAL_DAYS) {
+    throw createError(`Renewal days must be between ${MIN_RENEWAL_DAYS} and ${MAX_RENEWAL_DAYS}.`, 400);
+  }
 
   // Extend from the current expiry if still valid, otherwise from now
   const now = new Date();
+  if (accessToken.expiresAt && accessToken.expiresAt <= now) {
+    throw createError("This access has expired and cannot be renewed. Issue a new token.", 409);
+  }
   const currentExpiry = accessToken.expiresAt && accessToken.expiresAt > now ? accessToken.expiresAt : now;
   const newExpiry = new Date(currentExpiry);
   newExpiry.setDate(newExpiry.getDate() + days);
@@ -269,6 +293,7 @@ const renewSubscription = async (userId, accessTokenId, renewalData = {}) => {
 
 // Get one of the user's subscriptions
 const getSubscriptionById = async (userId, accessTokenId) => {
+  assertAccessTokenId(accessTokenId);
   const accessToken = await prisma.accessToken.findFirst({
     where: { id: accessTokenId, assignedUserId: userId },
     include: { product: { select: PRODUCT_SUMMARY_SELECT } },
