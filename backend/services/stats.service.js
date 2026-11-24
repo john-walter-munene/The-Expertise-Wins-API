@@ -12,6 +12,20 @@ const createError = (message, statusCode = 400) => {
   return error;
 };
 
+// Allowed statistics query filters. Services read only these keys, so a raw
+// query object can never steer a where clause into an unexpected field.
+const STATS_QUERY_KEYS = Object.freeze(["period", "product", "periodId", "productId"]);
+
+const pickStatsQuery = (query = {}) => {
+  const picked = { periodId: "all-time", productId: "ALL" };
+  if (!query || typeof query !== "object") return picked;
+  if (query.periodId !== undefined) picked.periodId = query.periodId;
+  if (query.period !== undefined && query.periodId === undefined) picked.periodId = query.period;
+  if (query.productId !== undefined) picked.productId = query.productId;
+  if (query.product !== undefined && query.productId === undefined) picked.productId = query.product;
+  return picked;
+};
+
 // Get midnight in Nairobi for today (offset 0) or another calendar day.
 const getNairobiDayStart = (dayOffset = 0) => {
   const nairobiNow = new Date(Date.now() + NAIROBI_UTC_OFFSET_MS);
@@ -373,7 +387,8 @@ const resolveProductSlug = (productId) => {
 // Build one summary for a period and an optional product. This is the single
 // payload the metric cards read from, so win rate, ROI and average odds always
 // describe the same set of tips.
-const getSummaryStats = async ({ periodId = "all-time", productId = "ALL" } = {}) => {
+const getSummaryStats = async (rawQuery = {}) => {
+  const { periodId = "all-time", productId = "ALL" } = pickStatsQuery(rawQuery);
   const productSlug = resolveProductSlug(productId);
   const timeWhere = resolvePeriodWhere(periodId);
 
@@ -652,11 +667,12 @@ const getSourceStats = async (filters = {}) => {
 // counts are based on published publications, because one tip can appear in
 // more than one product and raw tip counts would incorrectly show every tip in
 // every product.
-const getProductPeriodWhere = ({ periodId = "all-time", productId = "ALL" } = {}) => {
+const getProductPeriodWhere = (rawFilters = {}) => {
+  const { periodId = "all-time", productId = "ALL" } = pickStatsQuery(rawFilters);
   const productSlug = resolveProductSlug(productId);
   const where = resolvePeriodWhere(periodId);
 
-  return { productSlug, where };
+  return { productSlug, where, periodId };
 };
 
 const withProductPublication = async (where, productSlug) => {
@@ -677,7 +693,7 @@ const withProductPublication = async (where, productSlug) => {
 // reader expects when they count "the tips we published". Both are returned so
 // the UI can label the card with explicit units instead of mixing them.
 const getVolumeStats = async (filters = {}) => {
-  const { productSlug, where: periodWhere } = getProductPeriodWhere(filters);
+  const { productSlug, where: periodWhere, periodId } = getProductPeriodWhere(filters);
   const where = await withProductPublication(periodWhere, productSlug);
   const [total, pending, settled, cancelled, published, cards] = await Promise.all([
     prisma.tip.count({ where }),
@@ -694,7 +710,7 @@ const getVolumeStats = async (filters = {}) => {
   }, 0);
 
   return {
-    period: String(filters.periodId || "all-time"),
+    period: String(periodId || "all-time"),
     product: productSlug || "ALL",
     total,
     selections,
@@ -707,7 +723,7 @@ const getVolumeStats = async (filters = {}) => {
 
 // Count scraped and manual tips for the selected period and product.
 const getScrapedStats = async (filters = {}) => {
-  const { productSlug, where: periodWhere } = getProductPeriodWhere(filters);
+  const { productSlug, where: periodWhere, periodId } = getProductPeriodWhere(filters);
   const where = await withProductPublication(periodWhere, productSlug);
   const [total, withScrapedAt] = await Promise.all([
     prisma.tip.count({ where }),
@@ -715,7 +731,7 @@ const getScrapedStats = async (filters = {}) => {
   ]);
 
   return {
-    period: String(filters.periodId || "all-time"),
+    period: String(periodId || "all-time"),
     product: productSlug || "ALL",
     totalTips: total,
     scrapedTips: withScrapedAt,

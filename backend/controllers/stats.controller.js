@@ -16,8 +16,6 @@ const getSummaryStats = async (req, res, next) => {
     const stats = await statsService.getSummaryStats({
       periodId: req.query.period,
       productId: req.query.product,
-      userId: req.user?.id,
-      isAdmin: req.user?.role === "ADMIN",
     });
     res.status(200).json({ stats });
   } catch (error) {

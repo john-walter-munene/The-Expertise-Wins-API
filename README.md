@@ -119,7 +119,7 @@ Admins manage accounts from `/admin/users`:
 
 - **Role** changes take effect on the account's next request; the API re-reads the user on every JWT-authenticated call.
 - **Suspend / Activate** toggles the account between `SUSPENDED` and `ACTIVE` and is reversible.
-- **Delete** (`DELETE /api/admin/users/:id`) permanently removes the account. Its access tokens are unassigned, and its usage events and tip authorship references are cleared, inside a single transaction so the delete cannot fail on a foreign-key constraint; those records are retained. An admin cannot delete their own account.
+- **Delete** (`DELETE /api/admin/users/:id`) permanently removes the account. Its access tokens are unassigned, and its usage events and tip authorship references are cleared, inside a single transaction so the delete cannot fail on a foreign-key constraint; those records are retained. An admin cannot delete their own account, and the last active admin cannot be deleted, demoted, or suspended.
 
 ## V1 Status
 

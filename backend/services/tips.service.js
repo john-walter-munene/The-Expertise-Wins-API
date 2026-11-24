@@ -24,6 +24,12 @@ const archiveOutcomes = ["PENDING", "WON", "LOST", "VOID", "PUSH", "HALF_WON", "
 // List archive tiers that can be requested
 const archiveTiers = ["free", "vip", "maxbet"];
 
+// Identifier format used by Prisma cuid() primary keys
+const OBJECT_ID_PATTERN = /^c[0-9a-z]{6,40}$/;
+
+// Largest bulk operation accepted in one request
+const MAX_BULK_IDS = 100;
+
 // The business timezone for day bucketing is Africa/Nairobi, a fixed UTC+3 with
 // no daylight saving. All published "days" are Kenyan calendar days, so a day key
 // such as 2026-10-05 covers the UTC window 2026-10-04T21:00:00Z through
@@ -736,7 +742,14 @@ const validateTipIds = (ids) => {
   if (!Array.isArray(ids) || ids.length === 0 || ids.some((id) => typeof id !== "string" || !id.trim())) {
     throw createError("At least one valid tip ID is required.", 400);
   }
-  return [...new Set(ids)];
+  if (ids.length > MAX_BULK_IDS) {
+    throw createError(`No more than ${MAX_BULK_IDS} tip IDs may be sent per request.`, 400);
+  }
+  const unique = [...new Set(ids)];
+  for (const id of unique) {
+    if (!OBJECT_ID_PATTERN.test(id)) throw createError("Invalid tip ID format.", 400);
+  }
+  return unique;
 };
 
 const resolvePublishedProductSlug = (tip) => {

@@ -1,8 +1,8 @@
 const { Router } = require("express");
 
 const statsController = require("../controllers/stats.controller");
-const { authenticateJWT, optionalAuthenticateJWT } = require("../middleware/authentication");
-const authorizeAdmin = require("../middleware/authorize");
+const { authenticate, requireRole } = require("../middleware/authorize");
+const { optionalAuthenticateJWT } = require("../middleware/authentication");
 
 const statsRouter = Router();
 
@@ -16,8 +16,8 @@ statsRouter.get(
   statsController.getSummaryStats
 );
 
-// Get application usage for admins
-statsRouter.get("/usage", authenticateJWT, authorizeAdmin, statsController.getUsageStats);
+// Get application usage for admins: authentication plus an explicit role gate
+statsRouter.get("/usage", authenticate, requireRole("admin"), statsController.getUsageStats);
 
 // Get performance for fixed time periods
 statsRouter.get("/today", statsController.getTodayStats);
@@ -56,7 +56,7 @@ statsRouter.get("/stakes", statsController.getStakeStats);
 statsRouter.get("/sports", statsController.getSportStats);
 statsRouter.get("/markets", statsController.getMarketStats);
 statsRouter.get("/competitions", statsController.getCompetitionStats);
-statsRouter.get("/sources", authenticateJWT, authorizeAdmin, statsController.getSourceStats);
+statsRouter.get("/sources", authenticate, requireRole("admin"), statsController.getSourceStats);
 
 // Get tip volume and activity
 statsRouter.get("/volume", statsController.getVolumeStats);
@@ -70,6 +70,6 @@ statsRouter.get("/report/monthly", statsController.getMonthlyReport);
 statsRouter.get("/report/yearly", statsController.getYearlyReport);
 
 // Get performance for products the current user can access
-statsRouter.get("/my-access", authenticateJWT, statsController.getMyAccessStats);
+statsRouter.get("/my-access", authenticate, statsController.getMyAccessStats);
 
 module.exports = statsRouter;
